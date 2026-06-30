@@ -371,9 +371,9 @@ input.err,select.err{border-color:#e74c3c!important;}
         </div>
         <div id="action-wrap" style="display:none">
           <div class="action-btns">
-            <button class="btn btn-green" onclick="saveOrder('pagoya')">💰 Pagó ya</button>
-            <button class="btn btn-blue" onclick="saveOrder('al_recibir')">📦 Al recibir</button>
-            <button class="btn btn-orange" onclick="saveOrder('fiar')">🤝 Fiar</button>
+            <button class="btn btn-green" onclick="saveOrder('pagoya')">✅ Pagado</button>
+            <button class="btn btn-blue" onclick="saveOrder('al_recibir')">⏳ Pendiente de pago</button>
+            <button class="btn btn-orange" onclick="saveOrder('fiar')">🤝 Fiado</button>
           </div>
         </div>
         <div id="caja-warn-pedidos"></div>
@@ -1050,7 +1050,7 @@ function enterApp(r,skipCajaCheck){
   buildNav();
   checkExpiredStock();
   showSection('mostrador');
-  if(!skipCajaCheck&&(r==='cajera'||r==='mozo')&&!cajAbierta()){
+  if(!skipCajaCheck&&r==='cajera'&&!cajAbierta()){
     setTimeout(()=>toggleCaja(),400);
   }
 }
