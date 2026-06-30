@@ -373,7 +373,7 @@ input.err,select.err{border-color:#e74c3c!important;}
           <div class="action-btns">
             <button class="btn btn-green" onclick="saveOrder('pagoya')">✅ Pagado</button>
             <button class="btn btn-blue" onclick="saveOrder('al_recibir')">⏳ Pendiente de pago</button>
-            <button class="btn btn-orange" onclick="saveOrder('fiar')">🤝 Fiado</button>
+            <button class="btn btn-orange" onclick="abrirModalFiado()">🤝 Fiado</button>
           </div>
         </div>
         <div id="caja-warn-pedidos"></div>
@@ -419,6 +419,20 @@ input.err,select.err{border-color:#e74c3c!important;}
   <!-- ===== COMANDAS (cajera) ===== -->
   <div class="sec" id="s-comandas">
     <div id="comandas-content"></div>
+  </div>
+
+  <!-- modal fecha fiado -->
+  <div class="overlay" id="modal-fiado">
+    <div class="modal" style="max-width:300px;width:100%">
+      <div class="modal-title">🤝 Fiado — ¿Cuándo paga?</div>
+      <div id="fiado-cliente" style="font-weight:700;margin-bottom:14px;font-size:15px"></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Fecha de pago prometida</div>
+      <input type="date" id="fiado-fecha" style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gray" style="flex:1" onclick="document.getElementById('modal-fiado').classList.remove('show')">Cancelar</button>
+        <button class="btn btn-orange" style="flex:1" onclick="confirmarFiado()">Confirmar fiado</button>
+      </div>
+    </div>
   </div>
 
   <!-- modal cobrar -->
@@ -1495,7 +1509,7 @@ function selMetodo(m,btn){
 }
 
 // ===== GUARDAR ORDEN =====
-function saveOrder(tipo){
+function saveOrder(tipo,fiadoFecha){
   if(!cajAbierta()){toast('🔴 Abre la caja primero','#c0392b');return;}
   if(!cartItems.length){toast('⚠️ Agrega al menos un producto','#e67e22');return;}
   const clientEl=document.getElementById('o-client');
@@ -1516,7 +1530,7 @@ function saveOrder(tipo){
   const total=subtotal+deliveryCost;
   const allOrders=get(K.orders);
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
-  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:tipo==='pagoya'?metodoPago:null,pagado:tipo==='pagoya'};
+  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:tipo==='pagoya'?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
@@ -2017,12 +2031,29 @@ function renderHistorial(who){
   box.innerHTML=html;
 }
 
+// ===== FIADO CON FECHA =====
+function abrirModalFiado(){
+  if(!cajAbierta()){toast('🔴 Abre la caja primero','#c0392b');return;}
+  if(!cartItems.length){toast('⚠️ Agrega al menos un producto','#e67e22');return;}
+  const client=document.getElementById('o-client').value.trim();
+  if(!client){document.getElementById('o-client').classList.add('err');toast('⚠️ Falta el nombre','#e67e22');return;}
+  document.getElementById('fiado-cliente').textContent=client;
+  document.getElementById('fiado-fecha').value='';
+  document.getElementById('modal-fiado').classList.add('show');
+}
+function confirmarFiado(){
+  const fecha=document.getElementById('fiado-fecha').value;
+  if(!fecha){toast('⚠️ Selecciona la fecha de pago','#e67e22');return;}
+  document.getElementById('modal-fiado').classList.remove('show');
+  saveOrder('fiar',fecha);
+}
+
 // ===== COBROS PENDIENTES =====
 function renderCobrosPendientes(){
   const box=document.getElementById('cobros-pendientes');
   const panel=document.getElementById('cobros-panel');
   if(!box)return;
-  const pendientes=get(K.orders).filter(o=>!o.pagado&&(o.pagoTipo==='al_recibir'||o.pagoTipo==='fiar'));
+  const pendientes=get(K.orders).filter(o=>!o.pagado&&o.pagoTipo==='al_recibir');
   if(!pendientes.length){
     if(panel)panel.style.display='none';
     return;
