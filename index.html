@@ -395,6 +395,7 @@ input.err,select.err{border-color:#e74c3c!important;}
           <button class="qbtn" style="border-color:#e67e22;color:#e67e22;" onclick="openCompraUrgente()">🛒 Compra</button>
         </div>
         <div id="comandas-alerta" style="margin-top:8px;display:none"></div>
+        <div id="stock-alerta-cajera" style="display:none"></div>
         <div style="margin-top:8px">
           <button id="caja-toggle-btn" class="btn btn-full" onclick="toggleCaja()" style="font-size:13px"></button>
         </div>
@@ -417,7 +418,7 @@ input.err,select.err{border-color:#e74c3c!important;}
   <!-- ===== MAS (cajera) ===== -->
   <div class="sec" id="s-mas">
     <div class="sec-title">📦 Inventario</div>
-    <div class="card">
+    <div class="card" id="stock-entrada-cajera" style="display:none">
       <div class="sec-title" style="font-size:13px">Registrar entrada de inventario</div>
       <div class="flex-row">
         <div class="form-group">
@@ -1075,7 +1076,11 @@ function showSection(id){
   if(b)b.classList.add('active');
   if(id==='mostrador')renderMostrador();
   if(id==='comandas')renderComandas();
-  if(id==='mas'){renderStockList('cajera');renderHistorial('cajera');renderFiadosPanel();}
+  if(id==='mas'){
+    const entradaForm=document.getElementById('stock-entrada-cajera');
+    if(entradaForm)entradaForm.style.display='none';
+    renderStockList('cajera');renderHistorial('cajera');renderFiadosPanel();
+  }
   if(id==='dashboard')renderDashboard();
   if(id==='stock'){renderStockList('dueno');}
   if(id==='historial')renderHistorial('dueno');
@@ -1258,6 +1263,19 @@ function renderCajaPanel(){
     if(alertaBox){
       if(listos>0){alertaBox.style.display='block';alertaBox.innerHTML=`<button onclick="showSection('comandas')" style="width:100%;padding:10px;background:#0f5132;color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;animation:pulse 1s infinite">✅ ${listos} pedido${listos>1?'s':''} listo${listos>1?'s':''} — ver Comandas</button>`;}
       else{alertaBox.style.display='none';}
+    }
+    const stockBajo=get(K.stocks).filter(s=>!s.vencido&&s.qty<=s.min);
+    const stockAlertaBox=document.getElementById('stock-alerta-cajera');
+    if(stockAlertaBox){
+      if(stockBajo.length>0){
+        stockAlertaBox.style.display='block';
+        stockAlertaBox.innerHTML=`<div style="background:#fff3cd;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 13px;margin-top:8px">
+          <div style="font-size:12px;font-weight:800;color:#856404;margin-bottom:5px">⚠️ Stock bajo — avisar al dueño</div>
+          ${stockBajo.map(s=>`<div style="font-size:12px;color:#856404">• ${s.name}: <strong>${s.qty} ${s.unit}</strong> (mín ${s.min})</div>`).join('')}
+        </div>`;
+      }else{
+        stockAlertaBox.style.display='none';
+      }
     }
   }else{
     document.getElementById('cp-entro').textContent='S/0.00';
@@ -1902,11 +1920,11 @@ function renderStockList(who){
       ?`<button class="btn btn-green btn-sm" onclick="openAddStockModal(${s.id})">+ Añadir</button>
          <button class="btn btn-gray btn-sm" onclick="openEditStockModal(${s.id})">✏️ Editar</button>
          <button class="btn btn-danger btn-sm" onclick="deleteStock(${s.id})">Eliminar</button>`
-      :`<button class="btn btn-outline btn-sm" onclick="openAddStockModal(${s.id})">+ Añadir</button>`;
+      :'';
     return `<div class="stock-item ${cls}">
       <div class="si-top"><span class="si-name">${vencido?'🗑️':low?'⚠️':'✅'} ${s.name}</span><span class="si-qty">${s.qty} ${s.unit}</span></div>
       <div class="si-meta">Mín: ${s.min} ${s.unit}${costoInfo}${vidaInfo}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${adminBtns}</div>
+      ${adminBtns?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${adminBtns}</div>`:''}
     </div>`;
   }).join('');
 
