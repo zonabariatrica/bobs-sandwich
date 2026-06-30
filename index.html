@@ -1123,10 +1123,10 @@ function showSection(id){
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
     if(entradaForm)entradaForm.style.display='none';
-    renderStockList('cajera');
+    loadFromSupabase().then(()=>renderStockList('cajera'));
   }
   if(id==='dashboard')renderDashboard();
-  if(id==='stock'){renderStockList('dueno');}
+  if(id==='stock'){loadFromSupabase().then(()=>renderStockList('dueno'));}
   if(id==='historial')renderHistorial('dueno');
   if(id==='fiados-cajera')renderFiadosPanel();
   if(id==='hist-cajera')renderHistorialCajera();
@@ -2784,7 +2784,7 @@ function renderMetaMensual(){
     if(!role||role==='bob')return;
     await loadFromSupabase();
     autoRefresh();
-  },20000);
+  },8000);
 })();
 </script>
 </body>
