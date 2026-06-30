@@ -415,6 +415,22 @@ input.err,select.err{border-color:#e74c3c!important;}
     <div id="comandas-content"></div>
   </div>
 
+  <!-- ===== HISTORIAL CAJERA ===== -->
+  <div class="sec" id="s-hist-cajera">
+    <div style="margin-bottom:12px">
+      <div class="sec-title" style="margin-bottom:10px">🗂️ Historial de pedidos</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+        <button class="btn btn-gray btn-sm" onclick="filtroHC('hoy')">Hoy</button>
+        <button class="btn btn-gray btn-sm" onclick="filtroHC('semana')">Esta semana</button>
+        <button class="btn btn-gray btn-sm" onclick="filtroHC('mes')">Este mes</button>
+        <input type="date" id="hc-fecha" style="padding:6px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px" onchange="filtroHC('fecha')">
+        <button class="btn btn-gray btn-sm" onclick="filtroHC('todo')">Ver todo</button>
+      </div>
+      <div id="hc-lbl" style="font-size:12px;color:#888;margin-bottom:8px"></div>
+    </div>
+    <div id="hist-cajera"></div>
+  </div>
+
   <!-- ===== MAS (cajera) ===== -->
   <div class="sec" id="s-mas">
     <div class="sec-title">📦 Inventario</div>
@@ -445,9 +461,6 @@ input.err,select.err{border-color:#e74c3c!important;}
     <hr class="divider">
     <div class="sec-title">🤝 Fiados pendientes</div>
     <div id="fiados-panel-list-mas"><div class="empty">Sin fiados pendientes ✅</div></div>
-    <hr class="divider">
-    <div class="sec-title">🗂️ Historial de pedidos</div>
-    <div id="hist-cajera"></div>
   </div>
 
   <!-- ===== DASHBOARD (dueño) ===== -->
@@ -1061,7 +1074,7 @@ function logout(){role=null;currentPin='';sessionStorage.removeItem('bsRole');do
 function buildNav(){
   const nav=document.getElementById('app-nav');
   const tabs=role==='cajera'
-    ?[{id:'mostrador',lbl:'🥪 Mostrador'},{id:'comandas',lbl:'🎫 Comandas'},{id:'mas',lbl:'📦 Inventario & Historial'}]
+    ?[{id:'mostrador',lbl:'🥪 Mostrador'},{id:'comandas',lbl:'🎫 Comandas'},{id:'mas',lbl:'📦 Inventario'},{id:'hist-cajera',lbl:'🗂️ Historial'}]
     :role==='mozo'
     ?[{id:'mostrador',lbl:'🥪 Pedidos de mesa'}]
     :[{id:'dashboard',lbl:'📊 Dashboard'},{id:'mostrador',lbl:'🥪 Mostrador'},{id:'stock',lbl:'📦 Stock'},{id:'historial',lbl:'🗂️ Historial'},{id:'config',lbl:'⚙️ Config'}];
@@ -1084,6 +1097,7 @@ function showSection(id){
   if(id==='dashboard')renderDashboard();
   if(id==='stock'){renderStockList('dueno');}
   if(id==='historial')renderHistorial('dueno');
+  if(id==='hist-cajera')renderHistorialCajera();
   if(id==='config')renderConfig();
 }
 
@@ -1955,6 +1969,61 @@ function renderHistorial(who){
       const pagoBadge=o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':o.pagoTipo==='pagoya'?`<span class="bdg b-pg">💰 Cobrado</span>${o.metodoPago?' '+mlBadge(o.metodoPago):''}`:' <span class="bdg b-sp">📦 Al recibir</span>';
       html+=`<div class="hist-item">
         <div class="hi-top"><div><div class="hi-client">${o.client}${typeIcon(o.type)}${o.mesa?` <span style="background:#e8f5e9;color:#1a7a2a;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700">🪑 Mesa ${o.mesa}</span>`:''}</div><div class="hi-meta">${o.time} · ${itemsLabel(o.items)}</div><div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${pagoBadge}</div>${o.address?`<div style="font-size:11px;color:#999;margin-top:3px">📍 ${o.address}</div>`:''}</div><div class="hi-total">${fmt(o.total)}</div></div>
+      </div>`;
+    });
+  });
+  box.innerHTML=html;
+}
+
+// ===== HISTORIAL CAJERA =====
+let hcModo='hoy';
+function filtroHC(modo){
+  hcModo=modo;
+  if(modo==='fecha'){
+    const v=document.getElementById('hc-fecha').value;
+    if(!v)return;
+  }
+  renderHistorialCajera();
+}
+function renderHistorialCajera(){
+  const box=document.getElementById('hist-cajera');
+  const lbl=document.getElementById('hc-lbl');
+  if(!box)return;
+  const all=get(K.orders);
+  const ahora=new Date();
+  let filtered=[];
+  let lblTxt='';
+  if(hcModo==='hoy'){
+    filtered=all.filter(o=>o.date===todayStr());
+    lblTxt='Pedidos de hoy';
+  }else if(hcModo==='semana'){
+    const dias=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);dias.push(`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`);}
+    filtered=all.filter(o=>dias.includes(o.date));
+    lblTxt='Últimos 7 días';
+  }else if(hcModo==='mes'){
+    filtered=all.filter(o=>{if(!o.date)return false;const p=o.date.split('-');return parseInt(p[0])===ahora.getFullYear()&&parseInt(p[1])===(ahora.getMonth()+1);});
+    lblTxt='Este mes — '+ahora.toLocaleDateString('es-PE',{month:'long',year:'numeric'});
+  }else if(hcModo==='fecha'){
+    const f=document.getElementById('hc-fecha').value;
+    filtered=all.filter(o=>{if(!o.date)return false;const p=o.date.split('-');return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`===f;});
+    lblTxt='Filtro: '+f;
+  }else{
+    filtered=all;
+    lblTxt='Todos los pedidos';
+  }
+  filtered.sort((a,b)=>b.id-a.id);
+  if(lbl)lbl.textContent=lblTxt+' — '+filtered.length+' pedido(s)';
+  if(!filtered.length){box.innerHTML='<div class="empty">Sin pedidos en este período</div>';return;}
+  const grupos={};
+  filtered.forEach(o=>{const k=o.dateLabel||o.date;if(!grupos[k])grupos[k]=[];grupos[k].push(o);});
+  const totalVentas=filtered.filter(o=>o.pagado).reduce((s,o)=>s+o.total,0);
+  let html=`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:#888">Pedidos:</span> <strong>${filtered.length}</strong></div><div><span style="font-size:13px;color:#888">Cobrado:</span> <strong style="color:#2a5c27">${fmt(totalVentas)}</strong></div></div></div>`;
+  Object.entries(grupos).forEach(([fecha,orders])=>{
+    html+=`<div class="hist-sep">📅 ${fecha} — ${orders.length} pedido(s)</div>`;
+    orders.forEach(o=>{
+      const pagoBadge=o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':o.pagoTipo==='pagoya'?`<span class="bdg b-pg">✅ Pagado</span>${o.metodoPago?' '+mlBadge(o.metodoPago):''}':'<span class="bdg b-sp">⏳ Pendiente</span>';
+      html+=`<div class="hist-item">
+        <div class="hi-top"><div><div class="hi-client">${o.client}${typeIcon(o.type)}${o.mesa?` <span style="background:#e8f5e9;color:#1a7a2a;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700">🪑 Mesa ${o.mesa}</span>`:''}</div><div class="hi-meta">${o.time||''} · ${itemsLabel(o.items)}</div><div style="margin-top:4px">${pagoBadge}</div></div><div class="hi-total">${fmt(o.total)}</div></div>
       </div>`;
     });
   });
