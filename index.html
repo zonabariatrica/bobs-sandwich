@@ -245,6 +245,8 @@ input.err,select.err{border-color:#e74c3c!important;}
 .cfg-lbl{font-size:13px;flex:1;}
 .cfg-input{width:75px;padding:6px 9px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;text-align:center;}
 
+.modal-title{font-size:16px;font-weight:800;margin-bottom:14px;color:#1a1a1a;}
+
 /* MISC */
 .sec-title{font-size:15px;font-weight:700;margin-bottom:10px;}
 .divider{border:none;border-top:1px solid #eee;margin:14px 0;}
@@ -806,38 +808,6 @@ input.err,select.err{border-color:#e74c3c!important;}
   </div>
 </div>
 
-<!-- MODAL: Fiado manual -->
-<div class="overlay" id="modal-fiado">
-  <div class="modal" style="max-width:360px">
-    <button class="modal-close" onclick="closeFiadoModal()">×</button>
-    <h3>Registrar Fiado</h3>
-    <div class="form-group"><label>Nombre</label><input id="fi-name" type="text" placeholder="Nombre de la persona"></div>
-    <div class="form-group"><label>Productos</label><input id="fi-prods" type="text" placeholder="Ej: 1 Super Royal, 1 Salchipapa"></div>
-    <div class="form-group"><label>Monto (S/)</label><input id="fi-amt" type="number" placeholder="0.00" step="0.5" min="0"></div>
-    <div class="modal-btns">
-      <button class="btn btn-orange" onclick="saveFiado()">Registrar fiado</button>
-      <button class="btn btn-gray" onclick="closeFiadoModal()">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Pago fiado -->
-<div class="overlay" id="modal-fiado-pago">
-  <div class="modal" style="max-width:340px;text-align:center">
-    <button class="modal-close" onclick="closeFiadoPago()">×</button>
-    <h3 id="fp-title">Registrar pago</h3>
-    <p style="font-size:13px;color:#666;margin-bottom:14px">¿Con qué método pagó?</p>
-    <div class="metodo-wrap" style="justify-content:center;margin-bottom:14px">
-      <button class="mp-btn" id="fp-ef" onclick="selFiadoMetodo('efectivo',this)">💵 Efectivo</button>
-      <button class="mp-btn" id="fp-yp" onclick="selFiadoMetodo('yape',this)">💜 Yape</button>
-      <button class="mp-btn" id="fp-pl" onclick="selFiadoMetodo('plin',this)">💙 Plin</button>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-green" onclick="confirmarFiadoPago()">✓ Confirmar pago</button>
-      <button class="btn btn-gray" onclick="closeFiadoPago()">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL: Apertura caja -->
 <div class="overlay" id="modal-abre-caja">
@@ -999,7 +969,7 @@ function autoRefresh(){
   if(!active)return;
   const id=active.id.replace('s-','');
   const map={
-    mostrador:renderMostrador,
+    mostrador:()=>{renderMostrador();renderCobrosPendientes();},
     comandas:renderComandas,
     mas:()=>renderStockList('cajera'),
     'fiados-cajera':renderFiadosPanel,
@@ -1047,7 +1017,7 @@ const CATALOGO=[
 let role=null,currentPin='',activeCat=0,cartItems=[],pendingProduct=null,pendingStockId=null,_suggCallback=null,dashChartMode='week';
 let mesaSeleccionada=null;
 let selCremas=new Set(),selSinCremas=false,selAdics={},selEnsalada=null,selPapas=null;
-let metodoPago=null,fiadoPagoId=null,fiadoMetodo=null;
+let metodoPago=null;
 
 // ===== UTILS =====
 const fmt=n=>'S/'+parseFloat(n||0).toFixed(2);
@@ -1771,44 +1741,6 @@ function saveGasto(){
   closeGastoModal();toast('✅ Gasto registrado');renderCajaPanel();
 }
 
-// ===== FIADO MODAL =====
-function openFiadoModal(){document.getElementById('modal-fiado').classList.add('show');}
-function closeFiadoModal(){document.getElementById('modal-fiado').classList.remove('show');}
-function saveFiado(){
-  const n=document.getElementById('fi-name').value.trim();
-  const p=document.getElementById('fi-prods').value.trim();
-  const a=parseFloat(document.getElementById('fi-amt').value);
-  if(!n||!a||a<=0){toast('⚠️ Completa nombre y monto','#e67e22');return;}
-  const fiados=get(K.fiados);
-  fiados.push({id:Date.now(),date:todayStr(),dateLabel:fullDate(),time:nowTime(),name:n,productos:p,amount:a,status:'pendiente'});
-  set(K.fiados,fiados);
-  document.getElementById('fi-name').value='';document.getElementById('fi-prods').value='';document.getElementById('fi-amt').value='';
-  closeFiadoModal();toast('🤝 Fiado registrado — '+n+' — '+fmt(a));renderCajaPanel();
-}
-function abrirFiadoPago(id){
-  fiadoPagoId=id;fiadoMetodo=null;
-  ['fp-ef','fp-yp','fp-pl'].forEach(bid=>{const b=document.getElementById(bid);if(b)b.classList.remove('on');});
-  const f=get(K.fiados).find(x=>x.id===id);
-  if(f)document.getElementById('fp-title').textContent='💰 Pago de '+f.name+' — '+fmt(f.amount);
-  document.getElementById('modal-fiado-pago').classList.add('show');
-}
-function closeFiadoPago(){document.getElementById('modal-fiado-pago').classList.remove('show');fiadoPagoId=null;fiadoMetodo=null;}
-function selFiadoMetodo(m,btn){fiadoMetodo=m;['fp-ef','fp-yp','fp-pl'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('on');});btn.classList.add('on');}
-function confirmarFiadoPago(){
-  if(!fiadoMetodo){toast('⚠️ Selecciona el método de pago','#e67e22');return;}
-  const fiados=get(K.fiados);
-  const f=fiados.find(x=>x.id===fiadoPagoId);
-  if(f){
-    f.status='cancelado';f.pagadoFecha=fullDate();f.pagadoHora=nowTime();f.metodoPago=fiadoMetodo;
-    set(K.fiados,fiados);
-    if(f.orderId){
-      const orders=get(K.orders);
-      const o=orders.find(x=>x.id===f.orderId);
-      if(o){o.pagado=true;o.metodoPago=fiadoMetodo;o.pagadoDate=todayStr();set(K.orders,orders);}
-    }
-  }
-  closeFiadoPago();toast('✅ Fiado cobrado — '+mlLabel(fiadoMetodo));renderCajaPanel();renderFiadosPanel();
-}
 
 // ===== STOCK =====
 function saveStock(isDueno){
@@ -2065,8 +1997,9 @@ function renderFiadosPanel(){
     return;
   }
   fiados.sort((a,b)=>(a.fiadoFecha||'')>(b.fiadoFecha||'')?1:-1);
-  const hoy=todayStr();
-  const vencidos=fiados.filter(o=>o.fiadoFecha&&o.fiadoFecha<hoy);
+  function _pd(s){if(!s)return null;const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]);}
+  const hoyD=_pd(todayStr());
+  const vencidos=fiados.filter(o=>o.fiadoFecha&&_pd(o.fiadoFecha)<hoyD);
   const total=fiados.reduce((s,o)=>s+o.total,0);
   let html=`<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
     <div><span style="font-size:13px;color:#888">Fiados:</span> <strong>${fiados.length}</strong></div>
@@ -2075,8 +2008,9 @@ function renderFiadosPanel(){
   </div>`;
   fiados.forEach(o=>{
     const fechaLabel=o.fiadoFecha?new Date(o.fiadoFecha+'T00:00:00').toLocaleDateString('es-PE',{weekday:'short',day:'numeric',month:'short'}):'—';
-    const vencido=o.fiadoFecha&&o.fiadoFecha<hoy;
-    const hoyFlag=o.fiadoFecha===hoy;
+    const fd=_pd(o.fiadoFecha);
+    const vencido=fd&&fd<hoyD;
+    const hoyFlag=fd&&fd.getTime()===hoyD.getTime();
     html+=`<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:15px">${o.client}</div>
@@ -2134,7 +2068,7 @@ function selMetodoCobro(m,btn){
 function confirmarCobro(){
   const id=parseInt(document.getElementById('cobrar-id').value);
   const metodo=document.getElementById('cobrar-metodo').value;
-  if(!metodo){showToast('Selecciona el método de pago');return;}
+  if(!metodo){toast('⚠️ Selecciona el método de pago','#e67e22');return;}
   const orders=get(K.orders);
   const idx=orders.findIndex(o=>o.id===id);
   if(idx<0)return;
@@ -2143,11 +2077,15 @@ function confirmarCobro(){
   orders[idx].metodoPago=metodo;
   orders[idx].fechaCobro=new Date().toLocaleString('es-PE');
   set(K.orders,orders);
+  // Sincronizar K.fiados si corresponde
+  const fiados=get(K.fiados);
+  const fi=fiados.find(f=>f.orderId===id);
+  if(fi){fi.status='cancelado';fi.metodoPago=metodo;fi.pagadoFecha=fullDate();set(K.fiados,fiados);}
   document.getElementById('modal-cobrar').classList.remove('show');
   renderCobrosPendientes();
-  if(document.getElementById('fiados-cajera-list'))renderFiadosPanel();
+  renderFiadosPanel();
   renderCajaPanel();
-  showToast('Pago registrado ✓');
+  toast('✅ Pago registrado — '+mlLabel(metodo));
 }
 
 // ===== HISTORIAL CAJERA =====
