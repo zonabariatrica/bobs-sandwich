@@ -433,7 +433,7 @@ input.err,select.err{border-color:#e74c3c!important;}
       </div>
       <div class="flex-row">
         <div class="form-group"><label>Unidad</label>
-          <select id="sk-unit"><option>kg</option><option>unid</option><option>paq</option><option>lt</option><option>bolsa</option><option>caja</option><option>doc</option></select>
+          <select id="sk-unit"><option>und</option><option>gr</option><option>kg</option><option>lt</option><option>paq</option></select>
         </div>
         <div class="form-group"><label>Costo total (S/)</label><input id="sk-cost" type="number" placeholder="0.00" step="0.5" min="0"></div>
       </div>
@@ -507,7 +507,7 @@ input.err,select.err{border-color:#e74c3c!important;}
         </div>
         <div class="flex-row">
           <div class="form-group"><label>Unidad</label>
-            <select id="dsk-unit"><option>kg</option><option>unid</option><option>paq</option><option>lt</option><option>bolsa</option><option>caja</option><option>doc</option></select>
+            <select id="dsk-unit"><option>und</option><option>gr</option><option>kg</option><option>lt</option><option>paq</option></select>
           </div>
           <div class="form-group"><label>Costo total (S/)</label><input id="dsk-cost" type="number" placeholder="0.00" step="0.5" min="0"></div>
         </div>
@@ -631,14 +631,12 @@ input.err,select.err{border-color:#e74c3c!important;}
     <div style="margin-bottom:10px;">
       <div style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">Unidad</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;" id="bob-unit-btns">
-        <input type="hidden" id="bob-unit" value="unid">
+        <input type="hidden" id="bob-unit" value="und">
+        <button type="button" onclick="selBobUnit('und',this)" style="padding:10px 18px;border:2px solid #e67e22;border-radius:20px;background:#e67e22;font-size:14px;font-weight:600;color:white;cursor:pointer;">und</button>
+        <button type="button" onclick="selBobUnit('gr',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">gr</button>
         <button type="button" onclick="selBobUnit('kg',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">kg</button>
-        <button type="button" onclick="selBobUnit('unid',this)" style="padding:10px 18px;border:2px solid #e67e22;border-radius:20px;background:#e67e22;font-size:14px;font-weight:600;color:white;cursor:pointer;">unid</button>
-        <button type="button" onclick="selBobUnit('paq',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">paq</button>
         <button type="button" onclick="selBobUnit('lt',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">lt</button>
-        <button type="button" onclick="selBobUnit('bolsa',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">bolsa</button>
-        <button type="button" onclick="selBobUnit('caja',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">caja</button>
-        <button type="button" onclick="selBobUnit('doc',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">doc</button>
+        <button type="button" onclick="selBobUnit('paq',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">paq</button>
       </div>
     </div>
     <input id="bob-costo" type="number" placeholder="S/ Costo total (opcional)" min="0" step="0.5"
@@ -737,7 +735,7 @@ input.err,select.err{border-color:#e74c3c!important;}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group"><label>Cantidad</label><input id="cu-qty" type="number" placeholder="0" min="0" step="0.5"></div>
       <div class="form-group"><label>Unidad</label>
-        <select id="cu-unit"><option>kg</option><option>unid</option><option>paq</option><option>lt</option><option>bolsa</option><option>caja</option><option>doc</option></select>
+        <select id="cu-unit"><option>und</option><option>gr</option><option>kg</option><option>lt</option><option>paq</option></select>
       </div>
     </div>
     <div class="form-group"><label>Costo S/ (opcional)</label><input id="cu-cost" type="number" placeholder="0.00" step="0.5" min="0"></div>
