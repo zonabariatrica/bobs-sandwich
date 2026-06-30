@@ -2035,7 +2035,7 @@ function renderHistorialCajera(){
   Object.entries(grupos).forEach(([fecha,orders])=>{
     html+=`<div class="hist-sep">📅 ${fecha} — ${orders.length} pedido(s)</div>`;
     orders.forEach(o=>{
-      const pagoBadge=o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':o.pagoTipo==='pagoya'?`<span class="bdg b-pg">✅ Pagado</span>${o.metodoPago?' '+mlBadge(o.metodoPago):''}':'<span class="bdg b-sp">⏳ Pendiente</span>';
+      const pagoBadge=o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':o.pagoTipo==='pagoya'?`<span class="bdg b-pg">✅ Pagado</span>${o.metodoPago?' '+mlBadge(o.metodoPago):''}` :'<span class="bdg b-sp">⏳ Pendiente</span>';
       html+=`<div class="hist-item">
         <div class="hi-top"><div><div class="hi-client">${o.client}${typeIcon(o.type)}${o.mesa?` <span style="background:#e8f5e9;color:#1a7a2a;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700">🪑 Mesa ${o.mesa}</span>`:''}</div><div class="hi-meta">${o.time||''} · ${itemsLabel(o.items)}</div><div style="margin-top:4px">${pagoBadge}</div></div><div class="hi-total">${fmt(o.total)}</div></div>
       </div>`;
