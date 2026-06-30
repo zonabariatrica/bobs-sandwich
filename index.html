@@ -2618,8 +2618,11 @@ function renderBobList(){
   if(saveBtn)saveBtn.style.display='block';
 }
 
-function saveBobCompra(){
+async function saveBobCompra(){
   if(!bobItems.length){toast('⚠️ No hay nada que guardar','#e67e22');return;}
+  const saveBtn=document.getElementById('bob-save-btn');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ Sincronizando...';}
+
   const stocks=get(K.stocks);
   bobItems.forEach(item=>{
     const ex=stocks.find(s=>s.name.toLowerCase()===item.nombre.toLowerCase());
@@ -2632,17 +2635,31 @@ function saveBobCompra(){
       stocks.push({id:Date.now()+Math.random(),name:item.nombre,qty:item.qty,unit:item.unit,min:1,fechaIngreso:todayStr(),costoTotal:item.costo,qtyOriginal:item.qty});
     }
   });
-  set(K.stocks,stocks);
+
   const exps=get(K.expenses);
   bobItems.filter(i=>i.costo>0).forEach(item=>{
-    exps.push({id:Date.now()+Math.random(),date:todayStr(),time:nowTime(),cat:'Ingredientes',desc:`Compra mañana: ${item.nombre} (${item.qty} ${item.unit})`,amount:item.costo});
+    exps.push({id:Date.now()+Math.random(),date:todayStr(),time:nowTime(),cat:'Ingredientes',desc:`Compra: ${item.nombre} (${item.qty} ${item.unit})`,amount:item.costo});
   });
-  set(K.expenses,exps);
+
   const total=bobItems.reduce((s,i)=>s+i.costo,0);
-  toast('✅ Compra guardada — '+fmt(total),'#2a5c27');
+
+  localStorage.setItem(K.stocks,JSON.stringify(stocks));
+  localStorage.setItem(K.expenses,JSON.stringify(exps));
+
+  try{
+    await Promise.all([
+      _supa.from('bs_data').upsert({key:K.stocks,value:stocks,updated_at:new Date().toISOString()},{onConflict:'key'}),
+      _supa.from('bs_data').upsert({key:K.expenses,value:exps,updated_at:new Date().toISOString()},{onConflict:'key'})
+    ]);
+    toast('✅ Compra guardada y sincronizada — '+fmt(total),'#2a5c27');
+  }catch(e){
+    console.warn('bob sync error',e);
+    toast('⚠️ Guardado local — sin conexión','#e67e22');
+  }
+
   bobItems=[];
   renderBobList();
-  setTimeout(logoutBob,2000);
+  setTimeout(logoutBob,2500);
 }
 
 function resetTodo(){
