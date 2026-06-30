@@ -1033,9 +1033,10 @@ function checkPin(){
   updatePinDots();
   setTimeout(()=>document.getElementById('l-err').textContent='',2000);
 }
-function enterApp(r){
+function enterApp(r,skipCajaCheck){
   role=r;
   currentPin='';
+  sessionStorage.setItem('bsRole',r);
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('ah-role').textContent=r==='cajera'?'Cajera':r==='mozo'?'🍽️ Mozo':'👑 Dueño';
@@ -1043,11 +1044,11 @@ function enterApp(r){
   buildNav();
   checkExpiredStock();
   showSection('mostrador');
-  if((r==='cajera'||r==='mozo')&&!cajAbierta()){
+  if(!skipCajaCheck&&(r==='cajera'||r==='mozo')&&!cajAbierta()){
     setTimeout(()=>toggleCaja(),400);
   }
 }
-function logout(){role=null;currentPin='';document.getElementById('login').style.display='flex';document.getElementById('app').style.display='none';updatePinDots();}
+function logout(){role=null;currentPin='';sessionStorage.removeItem('bsRole');document.getElementById('login').style.display='flex';document.getElementById('app').style.display='none';updatePinDots();}
 
 // ===== NAV =====
 function buildNav(){
@@ -2535,7 +2536,12 @@ function renderMetaMensual(){
   await loadFromSupabase();
   document.body.removeChild(loader);
   setupRealtime();
-  document.getElementById('login').style.display='flex';
+  const savedRole=sessionStorage.getItem('bsRole');
+  if(savedRole&&savedRole!=='bob'){
+    enterApp(savedRole,true);
+  }else{
+    document.getElementById('login').style.display='flex';
+  }
   setInterval(async()=>{
     if(!role||role==='bob')return;
     await loadFromSupabase();
