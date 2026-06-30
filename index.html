@@ -969,7 +969,7 @@ function autoRefresh(){
   if(!active)return;
   const id=active.id.replace('s-','');
   const map={
-    mostrador:()=>{renderMostrador();renderCobrosPendientes();},
+    mostrador:()=>{renderMostrador();renderPendingOrders();renderCobrosPendientes();},
     comandas:renderComandas,
     mas:()=>renderStockList('cajera'),
     'fiados-cajera':renderFiadosPanel,
@@ -1118,7 +1118,7 @@ function showSection(id){
   const b=document.getElementById('nt-'+id);
   if(s)s.classList.add('active');
   if(b)b.classList.add('active');
-  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();}
+  if(id==='mostrador'){renderMostrador();renderPendingOrders();renderCobrosPendientes();}
   if(id==='comandas')renderComandas();
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
@@ -1474,7 +1474,20 @@ function renderCart(){
     aw.style.display='none';mw.style.display='none';
     warn.innerHTML='<div class="caja-warn">🔴 Abre la caja para guardar pedidos</div>';
   }else{
-    aw.style.display='block';mw.style.display='block';warn.innerHTML='';
+    warn.innerHTML='';
+    if(role==='mozo'){
+      mw.style.display='none';
+      aw.style.display='block';
+      aw.innerHTML='<button class="btn btn-green btn-full" onclick="saveOrder(\'al_recibir\')">📋 Enviar pedido a cocina</button>';
+    }else{
+      mw.style.display='block';
+      aw.style.display='block';
+      aw.innerHTML=`<div class="action-btns">
+        <button class="btn btn-green" onclick="saveOrder('pagoya')">✅ Pagado</button>
+        <button class="btn btn-blue" onclick="saveOrder('al_recibir')">⏳ Pendiente de pago</button>
+        <button class="btn btn-orange" onclick="abrirModalFiado()">🤝 Fiado</button>
+      </div>`;
+    }
   }
 }
 
@@ -1500,14 +1513,14 @@ function saveOrder(tipo,fiadoFecha){
   if(!client){clientEl.classList.add('err');toast('⚠️ Falta el nombre','#e67e22');return;}
   if(isDelivery&&!address){addEl.classList.add('err');toast('⚠️ Falta la dirección','#e67e22');return;}
   if(isLocal&&!mesaSeleccionada){toast('⚠️ Selecciona el número de mesa','#e67e22');return;}
-  if((tipo==='pagoya'||tipo==='al_recibir')&&!metodoPago){toast('⚠️ Selecciona método de pago','#e67e22');return;}
+  if((tipo==='pagoya'||tipo==='al_recibir')&&!metodoPago&&role!=='mozo'){toast('⚠️ Selecciona método de pago','#e67e22');return;}
   clientEl.classList.remove('err');if(addEl)addEl.classList.remove('err');
   const deliveryCost=isDelivery?1:0;
   const subtotal=cartItems.reduce((s,i)=>s+i.price,0);
   const total=subtotal+deliveryCost;
   const allOrders=get(K.orders);
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
-  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
+  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:role==='mozo'?'en_cocina':'pendiente',statusTimes:{[role==='mozo'?'en_cocina':'pendiente']:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
