@@ -2649,23 +2649,17 @@ function renderMetaMensual(){
 }
 
 // ===== INIT =====
-(async function(){
-  document.getElementById('login').style.display='none';
-  const loader=document.createElement('div');
-  loader.id='supa-loader';
-  loader.style.cssText='position:fixed;inset:0;background:#2a5c27;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;';
-  loader.innerHTML='<img src="bob-logo.jpg" style="width:110px;height:110px;object-fit:contain;margin-bottom:12px;filter:drop-shadow(0 4px 14px rgba(0,0,0,.3))"><div style="color:white;font-size:20px;font-weight:800">Bob\'s Sandwich</div><div style="color:rgba(255,255,255,.65);font-size:13px;margin-top:10px">Cargando datos...</div>';
-  document.body.appendChild(loader);
-  try{await loadFromSupabase();}finally{
-    if(document.body.contains(loader))document.body.removeChild(loader);
-  }
-  setupRealtime();
+(function(){
   const savedRole=sessionStorage.getItem('bsRole');
   if(savedRole&&savedRole!=='bob'){
     enterApp(savedRole,true);
   }else{
     document.getElementById('login').style.display='flex';
   }
+  loadFromSupabase().then(()=>{
+    setupRealtime();
+    if(role&&role!=='bob')autoRefresh();
+  });
   setInterval(async()=>{
     if(!role||role==='bob')return;
     await loadFromSupabase();
