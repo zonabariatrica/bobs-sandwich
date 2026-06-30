@@ -932,7 +932,10 @@ async function loadFromSupabase(){
   try{
     const {data,error}=await _supa.from('bs_data').select('*');
     if(error)throw error;
-    if(data)data.forEach(r=>localStorage.setItem(r.key,JSON.stringify(r.value)));
+    if(data)data.forEach(r=>{
+      if(r.value!==null&&r.value!==undefined)
+        localStorage.setItem(r.key,JSON.stringify(r.value));
+    });
   }catch(e){console.warn('load error',e);}
 }
 function setupRealtime(){
@@ -1004,9 +1007,9 @@ const fmt=n=>'S/'+parseFloat(n||0).toFixed(2);
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;}
 function nowTime(){return new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});}
 function fullDate(){return new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function get(k){return JSON.parse(localStorage.getItem(k)||'[]');}
+function get(k){try{return JSON.parse(localStorage.getItem(k)||'[]')||[];}catch(e){return[];}}
 function set(k,v){localStorage.setItem(k,JSON.stringify(v));supaSync(k,v);}
-function getObj(k,d){return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}
+function getObj(k,d){try{const p=JSON.parse(localStorage.getItem(k));return(p&&typeof p==='object')?p:d;}catch(e){return d;}}
 function setObj(k,v){localStorage.setItem(k,JSON.stringify(v));supaSync(k,v);}
 function getConfig(){return getObj(K.config,DEF_CFG);}
 function setConfig(c){setObj(K.config,c);}
@@ -2653,8 +2656,9 @@ function renderMetaMensual(){
   loader.style.cssText='position:fixed;inset:0;background:#2a5c27;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;';
   loader.innerHTML='<img src="bob-logo.jpg" style="width:110px;height:110px;object-fit:contain;margin-bottom:12px;filter:drop-shadow(0 4px 14px rgba(0,0,0,.3))"><div style="color:white;font-size:20px;font-weight:800">Bob\'s Sandwich</div><div style="color:rgba(255,255,255,.65);font-size:13px;margin-top:10px">Cargando datos...</div>';
   document.body.appendChild(loader);
-  await loadFromSupabase();
-  document.body.removeChild(loader);
+  try{await loadFromSupabase();}finally{
+    if(document.body.contains(loader))document.body.removeChild(loader);
+  }
   setupRealtime();
   const savedRole=sessionStorage.getItem('bsRole');
   if(savedRole&&savedRole!=='bob'){
