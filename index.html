@@ -625,13 +625,21 @@ input.err,select.err{border-color:#e74c3c!important;}
         onfocus2="this.style.borderColor='#e67e22'" onblur2="this.style.borderColor='#ddd'">
       <div id="bob-sugg" style="position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e67e22;border-top:none;border-radius:0 0 14px 14px;z-index:200;display:none;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-      <input id="bob-qty" type="number" placeholder="Cantidad" min="0" step="0.5"
-        style="padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;text-align:center;"
-        onfocus="this.style.borderColor='#e67e22'" onblur="this.style.borderColor='#ddd'">
-      <select id="bob-unit" style="padding:16px;border:2px solid #ddd;border-radius:14px;font-size:16px;background:white;">
-        <option>kg</option><option>unid</option><option>paq</option><option>lt</option><option>bolsa</option><option>caja</option><option>doc</option>
-      </select>
+    <input id="bob-qty" type="number" placeholder="Cantidad" min="0" step="0.5"
+      style="width:100%;padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;text-align:center;margin-bottom:10px;display:block;"
+      onfocus="this.style.borderColor='#e67e22'" onblur="this.style.borderColor='#ddd'">
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">Unidad</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="bob-unit-btns">
+        <input type="hidden" id="bob-unit" value="unid">
+        <button type="button" onclick="selBobUnit('kg',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">kg</button>
+        <button type="button" onclick="selBobUnit('unid',this)" style="padding:10px 18px;border:2px solid #e67e22;border-radius:20px;background:#e67e22;font-size:14px;font-weight:600;color:white;cursor:pointer;">unid</button>
+        <button type="button" onclick="selBobUnit('paq',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">paq</button>
+        <button type="button" onclick="selBobUnit('lt',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">lt</button>
+        <button type="button" onclick="selBobUnit('bolsa',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">bolsa</button>
+        <button type="button" onclick="selBobUnit('caja',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">caja</button>
+        <button type="button" onclick="selBobUnit('doc',this)" style="padding:10px 18px;border:2px solid #ddd;border-radius:20px;background:white;font-size:14px;font-weight:600;color:#555;cursor:pointer;">doc</button>
+      </div>
     </div>
     <input id="bob-costo" type="number" placeholder="S/ Costo total (opcional)" min="0" step="0.5"
       style="width:100%;padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;margin-bottom:14px;display:block;"
@@ -2285,6 +2293,13 @@ function saveVidas(){
 
 // ===== BOB COMPRAS =====
 let bobItems=[];
+function selBobUnit(unit,btn){
+  document.getElementById('bob-unit').value=unit;
+  document.querySelectorAll('#bob-unit-btns button').forEach(b=>{
+    b.style.background='white';b.style.borderColor='#ddd';b.style.color='#555';
+  });
+  btn.style.background='#e67e22';btn.style.borderColor='#e67e22';btn.style.color='white';
+}
 
 function enterBob(){
   role='bob';
@@ -2321,8 +2336,9 @@ function renderBobChips(){
 
 function bobSelect(name,unit){
   document.getElementById('bob-nombre').value=name;
-  document.getElementById('bob-unit').value=unit;
   const b=document.getElementById('bob-sugg');if(b)b.style.display='none';
+  const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${unit}'"]`);
+  if(btn)selBobUnit(unit,btn);
   document.getElementById('bob-qty').focus();
 }
 function bobFiltrar(val){
