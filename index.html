@@ -413,11 +413,6 @@ input.err,select.err{border-color:#e74c3c!important;}
         <div id="cobros-pendientes"></div>
       </div>
 
-      <!-- FIADOS ACTIVOS -->
-      <div class="caja-panel" id="fiados-panel" style="display:none">
-        <div class="cp-head"><span class="cp-title">🤝 Fiados activos</span></div>
-        <div id="fiados-list"></div>
-      </div>
     </div>
   </div>
   </div>
@@ -460,6 +455,12 @@ input.err,select.err{border-color:#e74c3c!important;}
         <button class="btn btn-green" style="flex:1" onclick="confirmarCobro()">Confirmar</button>
       </div>
     </div>
+  </div>
+
+  <!-- ===== FIADOS CAJERA ===== -->
+  <div class="sec" id="s-fiados-cajera">
+    <div class="sec-title" style="margin-bottom:12px">🤝 Fiados activos</div>
+    <div id="fiados-cajera-list"></div>
   </div>
 
   <!-- ===== HISTORIAL CAJERA ===== -->
@@ -1002,7 +1003,8 @@ function autoRefresh(){
   const map={
     mostrador:renderMostrador,
     comandas:renderComandas,
-    mas:()=>{renderStockList('cajera');renderHistorial('cajera');renderFiadosPanel();},
+    mas:()=>{renderStockList('cajera');renderHistorial('cajera');},
+    'fiados-cajera':renderFiadosPanel,
     dashboard:renderDashboard,
     stock:()=>renderStockList('dueno'),
     historial:()=>renderHistorial('dueno'),
@@ -1135,7 +1137,7 @@ function logout(){
 function buildNav(){
   const nav=document.getElementById('app-nav');
   const tabs=role==='cajera'
-    ?[{id:'mostrador',lbl:'🥪 Mostrador'},{id:'comandas',lbl:'🎫 Comandas'},{id:'mas',lbl:'📦 Inventario'},{id:'hist-cajera',lbl:'🗂️ Historial'}]
+    ?[{id:'mostrador',lbl:'🥪 Mostrador'},{id:'comandas',lbl:'🎫 Comandas'},{id:'mas',lbl:'📦 Inventario'},{id:'fiados-cajera',lbl:'🤝 Fiados'},{id:'hist-cajera',lbl:'🗂️ Historial'}]
     :role==='mozo'
     ?[{id:'mostrador',lbl:'🥪 Pedidos de mesa'}]
     :[{id:'dashboard',lbl:'📊 Dashboard'},{id:'mostrador',lbl:'🥪 Mostrador'},{id:'stock',lbl:'📦 Stock'},{id:'historial',lbl:'🗂️ Historial'},{id:'config',lbl:'⚙️ Config'}];
@@ -1148,7 +1150,7 @@ function showSection(id){
   const b=document.getElementById('nt-'+id);
   if(s)s.classList.add('active');
   if(b)b.classList.add('active');
-  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();renderFiadosPanel();}
+  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();}
   if(id==='comandas')renderComandas();
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
@@ -1158,6 +1160,7 @@ function showSection(id){
   if(id==='dashboard')renderDashboard();
   if(id==='stock'){renderStockList('dueno');}
   if(id==='historial')renderHistorial('dueno');
+  if(id==='fiados-cajera')renderFiadosPanel();
   if(id==='hist-cajera')renderHistorialCajera();
   if(id==='config')renderConfig();
 }
@@ -1555,7 +1558,6 @@ function saveOrder(tipo,fiadoFecha){
   renderPendingOrders();
   renderCajaPanel();
   renderCobrosPendientes();
-  renderFiadosPanel();
 }
 
 // ===== COMANDAS KANBAN =====
@@ -2057,31 +2059,41 @@ function confirmarFiado(){
 
 // ===== FIADOS PANEL =====
 function renderFiadosPanel(){
-  const box=document.getElementById('fiados-list');
-  const panel=document.getElementById('fiados-panel');
+  const box=document.getElementById('fiados-cajera-list');
   if(!box)return;
   const fiados=get(K.orders).filter(o=>!o.pagado&&o.pagoTipo==='fiar');
-  if(!fiados.length){if(panel)panel.style.display='none';return;}
-  if(panel)panel.style.display='block';
+  if(!fiados.length){
+    box.innerHTML='<div class="empty">Sin fiados activos</div>';
+    return;
+  }
   fiados.sort((a,b)=>(a.fiadoFecha||'')>(b.fiadoFecha||'')?1:-1);
-  box.innerHTML=fiados.map(o=>{
-    const fechaLabel=o.fiadoFecha?new Date(o.fiadoFecha+'T00:00:00').toLocaleDateString('es-PE',{day:'numeric',month:'short'}):'—';
-    const hoy=todayStr();
+  const hoy=todayStr();
+  const vencidos=fiados.filter(o=>o.fiadoFecha&&o.fiadoFecha<hoy);
+  const total=fiados.reduce((s,o)=>s+o.total,0);
+  let html=`<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><span style="font-size:13px;color:#888">Fiados:</span> <strong>${fiados.length}</strong></div>
+    <div><span style="font-size:13px;color:#888">Total pendiente:</span> <strong style="color:#e67e22">${fmt(total)}</strong></div>
+    ${vencidos.length?`<div style="width:100%;font-size:12px;color:#c0392b;font-weight:700">⚠️ ${vencidos.length} fiado(s) vencido(s)</div>`:''}
+  </div>`;
+  fiados.forEach(o=>{
+    const fechaLabel=o.fiadoFecha?new Date(o.fiadoFecha+'T00:00:00').toLocaleDateString('es-PE',{weekday:'short',day:'numeric',month:'short'}):'—';
     const vencido=o.fiadoFecha&&o.fiadoFecha<hoy;
     const hoyFlag=o.fiadoFecha===hoy;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+    html+=`<div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px">${o.client}</div>
-        <div style="font-size:12px;margin-top:2px;color:${vencido?'#c0392b':hoyFlag?'#e67e22':'#888'}">
-          📅 Paga el ${fechaLabel}${vencido?' ⚠️ Vencido':hoyFlag?' — hoy':''}
+        <div style="font-weight:700;font-size:15px">${o.client}</div>
+        <div style="font-size:12px;margin-top:3px;color:${vencido?'#c0392b':hoyFlag?'#e67e22':'#888'}">
+          📅 Paga el ${fechaLabel}${vencido?' — ⚠️ VENCIDO':hoyFlag?' — HOY':''}
         </div>
+        <div style="font-size:12px;color:#aaa;margin-top:2px">${o.dateLabel||o.date} · ${itemsLabel(o.items)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:16px;font-weight:800;color:#2a5c27">${fmt(o.total)}</div>
-        <button class="btn btn-orange btn-sm" style="margin-top:4px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
+        <div style="font-size:17px;font-weight:800;color:#e67e22">${fmt(o.total)}</div>
+        <button class="btn btn-green btn-sm" style="margin-top:5px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
       </div>
     </div>`;
-  }).join('');
+  });
+  box.innerHTML=html;
 }
 
 // ===== COBROS PENDIENTES =====
@@ -2135,7 +2147,7 @@ function confirmarCobro(){
   set(K.orders,orders);
   document.getElementById('modal-cobrar').classList.remove('show');
   renderCobrosPendientes();
-  renderFiadosPanel();
+  if(document.getElementById('fiados-cajera-list'))renderFiadosPanel();
   renderCajaPanel();
   showToast('Pago registrado ✓');
 }
