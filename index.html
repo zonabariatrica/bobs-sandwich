@@ -412,6 +412,12 @@ input.err,select.err{border-color:#e74c3c!important;}
         <div class="cp-head"><span class="cp-title">💵 Cuentas por cobrar</span></div>
         <div id="cobros-pendientes"></div>
       </div>
+
+      <!-- FIADOS ACTIVOS -->
+      <div class="caja-panel" id="fiados-panel" style="display:none">
+        <div class="cp-head"><span class="cp-title">🤝 Fiados activos</span></div>
+        <div id="fiados-list"></div>
+      </div>
     </div>
   </div>
   </div>
@@ -1142,7 +1148,7 @@ function showSection(id){
   const b=document.getElementById('nt-'+id);
   if(s)s.classList.add('active');
   if(b)b.classList.add('active');
-  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();}
+  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();renderFiadosPanel();}
   if(id==='comandas')renderComandas();
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
@@ -1523,14 +1529,14 @@ function saveOrder(tipo,fiadoFecha){
   if(!client){clientEl.classList.add('err');toast('⚠️ Falta el nombre','#e67e22');return;}
   if(isDelivery&&!address){addEl.classList.add('err');toast('⚠️ Falta la dirección','#e67e22');return;}
   if(isLocal&&!mesaSeleccionada){toast('⚠️ Selecciona el número de mesa','#e67e22');return;}
-  if(tipo==='pagoya'&&!metodoPago){toast('⚠️ Selecciona método de pago','#e67e22');return;}
+  if((tipo==='pagoya'||tipo==='al_recibir')&&!metodoPago){toast('⚠️ Selecciona método de pago','#e67e22');return;}
   clientEl.classList.remove('err');if(addEl)addEl.classList.remove('err');
   const deliveryCost=isDelivery?1:0;
   const subtotal=cartItems.reduce((s,i)=>s+i.price,0);
   const total=subtotal+deliveryCost;
   const allOrders=get(K.orders);
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
-  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:tipo==='pagoya'?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
+  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
@@ -1549,6 +1555,7 @@ function saveOrder(tipo,fiadoFecha){
   renderPendingOrders();
   renderCajaPanel();
   renderCobrosPendientes();
+  renderFiadosPanel();
 }
 
 // ===== COMANDAS KANBAN =====
@@ -2048,6 +2055,35 @@ function confirmarFiado(){
   saveOrder('fiar',fecha);
 }
 
+// ===== FIADOS PANEL =====
+function renderFiadosPanel(){
+  const box=document.getElementById('fiados-list');
+  const panel=document.getElementById('fiados-panel');
+  if(!box)return;
+  const fiados=get(K.orders).filter(o=>!o.pagado&&o.pagoTipo==='fiar');
+  if(!fiados.length){if(panel)panel.style.display='none';return;}
+  if(panel)panel.style.display='block';
+  fiados.sort((a,b)=>(a.fiadoFecha||'')>(b.fiadoFecha||'')?1:-1);
+  box.innerHTML=fiados.map(o=>{
+    const fechaLabel=o.fiadoFecha?new Date(o.fiadoFecha+'T00:00:00').toLocaleDateString('es-PE',{day:'numeric',month:'short'}):'—';
+    const hoy=todayStr();
+    const vencido=o.fiadoFecha&&o.fiadoFecha<hoy;
+    const hoyFlag=o.fiadoFecha===hoy;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${o.client}</div>
+        <div style="font-size:12px;margin-top:2px;color:${vencido?'#c0392b':hoyFlag?'#e67e22':'#888'}">
+          📅 Paga el ${fechaLabel}${vencido?' ⚠️ Vencido':hoyFlag?' — hoy':''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:16px;font-weight:800;color:#2a5c27">${fmt(o.total)}</div>
+        <button class="btn btn-orange btn-sm" style="margin-top:4px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ===== COBROS PENDIENTES =====
 function renderCobrosPendientes(){
   const box=document.getElementById('cobros-pendientes');
@@ -2099,6 +2135,8 @@ function confirmarCobro(){
   set(K.orders,orders);
   document.getElementById('modal-cobrar').classList.remove('show');
   renderCobrosPendientes();
+  renderFiadosPanel();
+  renderCajaPanel();
   showToast('Pago registrado ✓');
 }
 
