@@ -1208,18 +1208,23 @@ function renderPendingOrders(){
   if(!box)return;
   const pending=get(K.orders).filter(o=>o.date===todayStr()&&o.status==='pendiente');
   if(!pending.length){box.innerHTML='<div class="empty">Aquí aparece el pedido al guardarlo</div>';return;}
-  const stTxt=o=>getOrderStations(o.items).map(s=>s==='freidor'?'🍟':'🔥').join('');
-  box.innerHTML=pending.map(o=>`
-    <div style="background:#fffbf0;border:2px solid #f59e0b;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+  box.innerHTML=pending.map(o=>{
+    const detId='pdet-'+o.id;
+    const tieneDetalle=o.items.some(it=>itemDetail(it));
+    const nombresHtml=o.items.map(it=>`<div style="padding:3px 0;border-bottom:1px solid #f5e9c8;font-size:13px;font-weight:600">${it.name}${it.adicionales&&it.adicionales.length?` <span style="color:#e05a2b;font-size:11px">+adic</span>`:''}</div>`).join('');
+    const detalleHtml=tieneDetalle?`<div id="${detId}" style="display:none;margin-top:7px;padding-top:7px;border-top:1px dashed #f0d080">${o.items.map(it=>`<div style="padding:3px 0;font-size:12px"><strong>${it.name}</strong>${itemDetail(it)?`<br><span style="color:#888">${itemDetail(it)}</span>`:''}</div>`).join('')}</div><button onclick="(function(){var d=document.getElementById('${detId}');var b=event.target;if(d.style.display==='none'){d.style.display='block';b.textContent='▲ Ocultar';}else{d.style.display='none';b.textContent='▼ Ver detalles';}})();" style="margin-top:5px;background:none;border:none;font-size:11px;color:#888;cursor:pointer;padding:0;text-decoration:underline">▼ Ver detalles</button>`:'';
+    return `<div style="background:#fffbf0;border:2px solid #f59e0b;border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <span style="background:#2a5c27;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">#${o.orderNum||'?'}</span>
         <span style="font-weight:700;font-size:14px;flex:1">${o.client}${typeIcon(o.type)}</span>
         ${o.mesa?`<span style="background:#e8f5e9;color:#1a7a2a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700">🪑 M${o.mesa}</span>`:''}
         <span style="font-weight:700;color:#e05a2b">${fmt(o.total)}</span>
       </div>
-      <div style="font-size:12px;color:#555;margin-bottom:6px">${stTxt(o)} ${o.items.map(it=>`<div style="padding:4px 0;border-bottom:1px solid #f5e9c8"><strong>${it.name}</strong>${itemDetail(it)?`<br><span style="color:#888">${itemDetail(it)}</span>`:''}</div>`).join('')}</div>
-      <button class="btn btn-orange btn-full btn-sm" onclick="enviarACocina(${o.id})">🍳 Enviar a cocina</button>
-    </div>`).join('');
+      <div>${nombresHtml}</div>
+      ${detalleHtml}
+      <button class="btn btn-orange btn-full btn-sm" style="margin-top:8px" onclick="enviarACocina(${o.id})">🍳 Enviar a cocina</button>
+    </div>`;
+  }).join('');
 }
 function enviarACocina(id){
   const orders=get(K.orders);
@@ -1474,17 +1479,20 @@ function renderComandas(){
     const stTxt=stations.map(s=>s==='freidor'?'🍟':'🔥').join('');
     const numBadge=o.orderNum?`<span style="background:#2a5c27;color:white;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">#${o.orderNum}</span>`:'';
     const mesaBadge=o.mesa?`<span style="background:#e8f5e9;color:#1a7a2a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;flex-shrink:0">🪑 Mesa ${o.mesa}</span>`:'';
-    const isDelivery=o.type==='delivery';
+    const detId='det-'+o.id;
+    const tieneDetalle=o.items.some(it=>itemDetail(it));
+    const nombresHtml=o.items.map(it=>`<div style="padding:3px 0;border-bottom:1px solid #f5f5f5;font-size:13px;font-weight:600">${stTxt.length?'':''} ${it.name}${it.adicionales&&it.adicionales.length?` <span style="color:#e05a2b;font-size:11px">+adic</span>`:''}</div>`).join('');
+    const detalleHtml=tieneDetalle?`<div id="${detId}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #eee">${o.items.map(it=>`<div style="padding:4px 0;border-bottom:1px solid #f5f5f5"><strong style="font-size:12px">${it.name}</strong>${itemDetail(it)?`<br><span style="color:#888;font-size:11px">${itemDetail(it)}</span>`:''}</div>`).join('')}${o.address?`<div style="font-size:11px;color:#888;margin-top:4px">📍 ${o.address}</div>`:''}</div><button onclick="(function(){var d=document.getElementById('${detId}');var b=event.target;if(d.style.display==='none'){d.style.display='block';b.textContent='▲ Ocultar detalles';}else{d.style.display='none';b.textContent='▼ Ver detalles';}})();" style="margin-top:6px;background:none;border:none;font-size:11px;color:#888;cursor:pointer;padding:0;text-decoration:underline">▼ Ver detalles</button>`:'';
     return `<div style="background:white;border-radius:10px;padding:11px 12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:3px solid ${c.col}">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         ${numBadge}
         <span style="font-weight:700;font-size:14px;flex:1">${o.client}${typeIcon(o.type)}</span>
         ${mesaBadge}
         <span style="font-size:12px;font-weight:700;color:#e05a2b">${fmt(o.total)}</span>
       </div>
-      <div style="font-size:12px;color:#555;margin-bottom:6px">${stTxt} ${o.items.map(it=>`<div style="padding:3px 0;border-bottom:1px solid #f0f0f0"><strong>${it.name}</strong>${itemDetail(it)?`<br><span style="color:#888;font-size:11px">${itemDetail(it)}</span>`:''}</div>`).join('')}</div>
-      ${o.address?`<div style="font-size:11px;color:#888;margin-bottom:6px">📍 ${o.address}</div>`:''}
-      ${c.btn?`<button class="btn ${c.bcls} btn-sm btn-full" onclick="advanceStatus(${o.id});renderComandas()">${c.btn}</button>`:''}
+      <div>${nombresHtml}</div>
+      ${detalleHtml}
+      ${c.btn?`<button class="btn ${c.bcls} btn-sm btn-full" style="margin-top:8px" onclick="advanceStatus(${o.id});renderComandas()">${c.btn}</button>`:''}
     </div>`;
   };
 
