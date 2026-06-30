@@ -412,7 +412,31 @@ input.err,select.err{border-color:#e74c3c!important;}
 
   <!-- ===== COMANDAS (cajera) ===== -->
   <div class="sec" id="s-comandas">
+    <div class="sec-title" style="margin-bottom:10px">💵 Cobros pendientes</div>
+    <div id="cobros-pendientes" style="margin-bottom:18px"></div>
+    <div class="sec-title" style="margin-bottom:10px">🎫 Comandas en cocina</div>
     <div id="comandas-content"></div>
+  </div>
+
+  <!-- modal cobrar -->
+  <div class="overlay" id="modal-cobrar">
+    <div class="modal" style="max-width:320px;width:100%">
+      <div class="modal-title">💵 Registrar pago</div>
+      <div id="cobrar-cliente" style="font-weight:700;margin-bottom:14px;font-size:15px"></div>
+      <input type="hidden" id="cobrar-id">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">¿Cómo pagó?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">
+        <button class="btn btn-gray" id="cm-ef" onclick="selMetodoCobro('efectivo',this)">💵 Efectivo</button>
+        <button class="btn btn-gray" id="cm-yp" onclick="selMetodoCobro('yape',this)">📱 Yape</button>
+        <button class="btn btn-gray" id="cm-pl" onclick="selMetodoCobro('plin',this)">📱 Plin</button>
+        <button class="btn btn-gray" id="cm-tj" onclick="selMetodoCobro('tarjeta',this)">💳 Tarjeta</button>
+      </div>
+      <input type="hidden" id="cobrar-metodo">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gray" style="flex:1" onclick="document.getElementById('modal-cobrar').classList.remove('show')">Cancelar</button>
+        <button class="btn btn-green" style="flex:1" onclick="confirmarCobro()">Confirmar</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== HISTORIAL CAJERA ===== -->
@@ -1102,7 +1126,7 @@ function showSection(id){
   if(s)s.classList.add('active');
   if(b)b.classList.add('active');
   if(id==='mostrador')renderMostrador();
-  if(id==='comandas')renderComandas();
+  if(id==='comandas'){renderComandas();renderCobrosPendientes();}
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
     if(entradaForm)entradaForm.style.display='none';
@@ -1987,6 +2011,59 @@ function renderHistorial(who){
     });
   });
   box.innerHTML=html;
+}
+
+// ===== COBROS PENDIENTES =====
+function renderCobrosPendientes(){
+  const box=document.getElementById('cobros-pendientes');
+  if(!box)return;
+  const pendientes=get(K.orders).filter(o=>!o.pagado&&(o.pagoTipo==='spago'||o.pagoTipo==='fiar'));
+  if(!pendientes.length){
+    box.innerHTML='<div style="color:#aaa;font-size:13px;padding:6px 0 4px">Sin cobros pendientes</div>';
+    return;
+  }
+  box.innerHTML=pendientes.map(o=>`
+    <div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${o.client}</div>
+        <div style="font-size:12px;color:#888;margin-top:1px">${o.dateLabel||o.date}${o.mesa?' · Mesa '+o.mesa:''}</div>
+        <div style="margin-top:4px">${o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':'<span class="bdg b-sp">⏳ Pendiente</span>'}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800;color:#2a5c27">${fmt(o.total)}</div>
+        <button class="btn btn-green btn-sm" style="margin-top:5px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
+      </div>
+    </div>`).join('');
+}
+function modalCobrar(id){
+  const o=get(K.orders).find(o=>o.id===id);
+  if(!o)return;
+  document.getElementById('cobrar-id').value=id;
+  document.getElementById('cobrar-cliente').textContent=o.client+' — '+fmt(o.total);
+  document.getElementById('cobrar-metodo').value='';
+  ['cm-ef','cm-yp','cm-pl','cm-tj'].forEach(b=>{const el=document.getElementById(b);if(el){el.style.background='';el.style.color='';}});
+  document.getElementById('modal-cobrar').classList.add('show');
+}
+function selMetodoCobro(m,btn){
+  document.getElementById('cobrar-metodo').value=m;
+  ['cm-ef','cm-yp','cm-pl','cm-tj'].forEach(b=>{const el=document.getElementById(b);if(el){el.style.background='';el.style.color='';}});
+  btn.style.background='#2a5c27';btn.style.color='#fff';
+}
+function confirmarCobro(){
+  const id=parseInt(document.getElementById('cobrar-id').value);
+  const metodo=document.getElementById('cobrar-metodo').value;
+  if(!metodo){showToast('Selecciona el método de pago');return;}
+  const orders=get(K.orders);
+  const idx=orders.findIndex(o=>o.id===id);
+  if(idx<0)return;
+  orders[idx].pagado=true;
+  orders[idx].pagoTipo='pagoya';
+  orders[idx].metodoPago=metodo;
+  orders[idx].fechaCobro=new Date().toLocaleString('es-PE');
+  set(K.orders,orders);
+  document.getElementById('modal-cobrar').classList.remove('show');
+  renderCobrosPendientes();
+  showToast('Pago registrado ✓');
 }
 
 // ===== HISTORIAL CAJERA =====
