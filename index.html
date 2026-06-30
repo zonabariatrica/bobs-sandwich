@@ -1068,7 +1068,18 @@ function enterApp(r,skipCajaCheck){
     setTimeout(()=>toggleCaja(),400);
   }
 }
-function logout(){role=null;currentPin='';sessionStorage.removeItem('bsRole');document.getElementById('login').style.display='flex';document.getElementById('app').style.display='none';updatePinDots();}
+function logout(){
+  role=null;
+  currentPin='';
+  metodoPago=null;
+  cartItems=[];
+  sessionStorage.removeItem('bsRole');
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));
+  document.getElementById('login').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('l-err').textContent='';
+  updatePinDots();
+}
 
 // ===== NAV =====
 function buildNav(){
