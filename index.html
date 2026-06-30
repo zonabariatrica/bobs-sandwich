@@ -406,15 +406,18 @@ input.err,select.err{border-color:#e74c3c!important;}
         <div class="cp-head"><span class="cp-title">🎫 Pedido listo para cocina</span></div>
         <div id="pending-orders-panel"><div class="empty">Aquí aparece el pedido al guardarlo</div></div>
       </div>
+
+      <!-- CUENTAS POR COBRAR -->
+      <div class="caja-panel" id="cobros-panel" style="display:none">
+        <div class="cp-head"><span class="cp-title">💵 Cuentas por cobrar</span></div>
+        <div id="cobros-pendientes"></div>
+      </div>
     </div>
   </div>
   </div>
 
   <!-- ===== COMANDAS (cajera) ===== -->
   <div class="sec" id="s-comandas">
-    <div class="sec-title" style="margin-bottom:10px">💵 Cobros pendientes</div>
-    <div id="cobros-pendientes" style="margin-bottom:18px"></div>
-    <div class="sec-title" style="margin-bottom:10px">🎫 Comandas en cocina</div>
     <div id="comandas-content"></div>
   </div>
 
@@ -1125,8 +1128,8 @@ function showSection(id){
   const b=document.getElementById('nt-'+id);
   if(s)s.classList.add('active');
   if(b)b.classList.add('active');
-  if(id==='mostrador')renderMostrador();
-  if(id==='comandas'){renderComandas();renderCobrosPendientes();}
+  if(id==='mostrador'){renderMostrador();renderCobrosPendientes();}
+  if(id==='comandas')renderComandas();
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
     if(entradaForm)entradaForm.style.display='none';
@@ -1531,6 +1534,7 @@ function saveOrder(tipo){
   toast('✅ '+client+' — '+msg+' — '+fmt(total));
   renderPendingOrders();
   renderCajaPanel();
+  renderCobrosPendientes();
 }
 
 // ===== COMANDAS KANBAN =====
@@ -2016,22 +2020,23 @@ function renderHistorial(who){
 // ===== COBROS PENDIENTES =====
 function renderCobrosPendientes(){
   const box=document.getElementById('cobros-pendientes');
+  const panel=document.getElementById('cobros-panel');
   if(!box)return;
   const pendientes=get(K.orders).filter(o=>!o.pagado&&(o.pagoTipo==='spago'||o.pagoTipo==='fiar'));
   if(!pendientes.length){
-    box.innerHTML='<div style="color:#aaa;font-size:13px;padding:6px 0 4px">Sin cobros pendientes</div>';
+    if(panel)panel.style.display='none';
     return;
   }
+  if(panel)panel.style.display='block';
   box.innerHTML=pendientes.map(o=>`
-    <div class="card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px">${o.client}</div>
-        <div style="font-size:12px;color:#888;margin-top:1px">${o.dateLabel||o.date}${o.mesa?' · Mesa '+o.mesa:''}</div>
-        <div style="margin-top:4px">${o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':'<span class="bdg b-sp">⏳ Pendiente</span>'}</div>
+        <div style="font-weight:700;font-size:14px">${o.client}${o.mesa?' <span style="font-size:12px;color:#888">· Mesa '+o.mesa+'</span>':''}</div>
+        <div style="margin-top:3px">${o.pagoTipo==='fiar'?'<span class="bdg b-fi">🤝 Fiado</span>':'<span class="bdg b-sp">⏳ Pendiente</span>'}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:18px;font-weight:800;color:#2a5c27">${fmt(o.total)}</div>
-        <button class="btn btn-green btn-sm" style="margin-top:5px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
+        <div style="font-size:16px;font-weight:800;color:#2a5c27">${fmt(o.total)}</div>
+        <button class="btn btn-green btn-sm" style="margin-top:4px" onclick="modalCobrar(${o.id})">💵 Cobrar</button>
       </div>
     </div>`).join('');
 }
