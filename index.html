@@ -2022,7 +2022,7 @@ function renderCobrosPendientes(){
   const box=document.getElementById('cobros-pendientes');
   const panel=document.getElementById('cobros-panel');
   if(!box)return;
-  const pendientes=get(K.orders).filter(o=>!o.pagado&&(o.pagoTipo==='spago'||o.pagoTipo==='fiar'));
+  const pendientes=get(K.orders).filter(o=>!o.pagado&&(o.pagoTipo==='al_recibir'||o.pagoTipo==='fiar'));
   if(!pendientes.length){
     if(panel)panel.style.display='none';
     return;
