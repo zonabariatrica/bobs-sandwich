@@ -507,8 +507,6 @@ input.err,select.err{border-color:#e74c3c!important;}
     <div class="sec-title">Inventario actual</div>
     <div id="stock-list-cajera"></div>
     <hr class="divider">
-    <div class="sec-title">🤝 Fiados pendientes</div>
-    <div id="fiados-panel-list-mas"><div class="empty">Sin fiados pendientes ✅</div></div>
   </div>
 
   <!-- ===== DASHBOARD (dueño) ===== -->
@@ -1003,7 +1001,7 @@ function autoRefresh(){
   const map={
     mostrador:renderMostrador,
     comandas:renderComandas,
-    mas:()=>{renderStockList('cajera');renderHistorial('cajera');},
+    mas:()=>renderStockList('cajera'),
     'fiados-cajera':renderFiadosPanel,
     dashboard:renderDashboard,
     stock:()=>renderStockList('dueno'),
@@ -1155,7 +1153,7 @@ function showSection(id){
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
     if(entradaForm)entradaForm.style.display='none';
-    renderStockList('cajera');renderHistorial('cajera');renderFiadosPanel();
+    renderStockList('cajera');
   }
   if(id==='dashboard')renderDashboard();
   if(id==='stock'){renderStockList('dueno');}
