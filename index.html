@@ -2695,17 +2695,18 @@ function saveBobCompra(){
 }
 
 function resetTodo(){
-  showConfirm('¿Borrar TODOS los datos del sistema? Pedidos, historial, inventario, caja, fiados — todo. Esta acción no se puede deshacer.',async()=>{
+  showConfirm('¿Borrar TODOS los datos del sistema? Pedidos, historial, inventario, caja, fiados — todo. Esta acción borra en todos los dispositivos.',async()=>{
     const keys=[K.orders,K.expenses,K.fiados,K.stocks,K.losses,K.caja,K.cajaCierre];
-    keys.forEach(k=>localStorage.removeItem(k));
+    keys.forEach(k=>localStorage.setItem(k,'[]'));
     cartItems=[];metodoPago=null;mesaSeleccionada=null;
     try{
-      await _supa.from('bs_data').delete().in('key',keys);
+      await Promise.all(keys.map(k=>
+        _supa.from('bs_data').upsert({key:k,value:[],updated_at:new Date().toISOString()},{onConflict:'key'})
+      ));
     }catch(e){console.warn('supabase reset error',e);}
-    toast('🗑️ Sistema en cero — todos los datos eliminados.','#c0392b');
+    toast('🗑️ Sistema en cero — todos los dispositivos sincronizados.','#c0392b');
     renderMostrador();
     renderCobrosPendientes();
-    renderFiadosPanel();
     renderCajaPanel();
   });
 }
