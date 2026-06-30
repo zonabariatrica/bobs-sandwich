@@ -2685,11 +2685,18 @@ function saveBobCompra(){
 }
 
 function resetTodo(){
-  showConfirm('¿Borrar TODOS los datos del sistema? Esta acción no se puede deshacer.',()=>{
-    [K.orders,K.expenses,K.fiados,K.stocks,K.losses,K.caja,K.cajaCierre].forEach(k=>localStorage.removeItem(k));
-    cartItems=[];metodoPago=null;
-    toast('🗑️ Datos borrados. El sistema está en cero.','#c0392b');
+  showConfirm('¿Borrar TODOS los datos del sistema? Pedidos, historial, inventario, caja, fiados — todo. Esta acción no se puede deshacer.',async()=>{
+    const keys=[K.orders,K.expenses,K.fiados,K.stocks,K.losses,K.caja,K.cajaCierre];
+    keys.forEach(k=>localStorage.removeItem(k));
+    cartItems=[];metodoPago=null;mesaSeleccionada=null;
+    try{
+      await _supa.from('bs_data').delete().in('key',keys);
+    }catch(e){console.warn('supabase reset error',e);}
+    toast('🗑️ Sistema en cero — todos los datos eliminados.','#c0392b');
     renderMostrador();
+    renderCobrosPendientes();
+    renderFiadosPanel();
+    renderCajaPanel();
   });
 }
 
