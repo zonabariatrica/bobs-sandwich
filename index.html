@@ -683,7 +683,7 @@ input.err,select.err{border-color:#e74c3c!important;}
       <input id="bob-nombre" type="text" placeholder="Buscar producto del inventario..."
         style="width:100%;padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;display:block;"
         autocomplete="off"
-        oninput="bobFiltrar(this.value);bobMostrarInfo(this.value)" onfocus="bobFiltrar(this.value)" onblur="setTimeout(()=>{const b=document.getElementById('bob-sugg');if(b)b.style.display='none';},200)">
+        oninput="_bobSelected=null;bobFiltrar(this.value)" onfocus="bobFiltrar(this.value)" onblur="setTimeout(()=>{const b=document.getElementById('bob-sugg');if(b)b.style.display='none';},200)">
       <div id="bob-sugg" style="position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e67e22;border-top:none;border-radius:0 0 14px 14px;z-index:200;display:none;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)"></div>
     </div>
     <div id="bob-stock-info" style="display:none;margin-bottom:10px;"></div>
@@ -1030,7 +1030,7 @@ const CATALOGO=[
 
 // ===== STATE =====
 let role=null,currentPin='',activeCat=0,cartItems=[],pendingProduct=null,pendingStockId=null,_suggCallback=null,dashChartMode='week';
-let _supaChannel=null,_refreshTimer=null;
+let _supaChannel=null,_refreshTimer=null,_bobSelected=null;
 let mesaSeleccionada=null;
 let selCremas=new Set(),selSinCremas=false,selAdics={},selEnsalada=null,selPapas=null;
 let metodoPago=null;
@@ -2573,9 +2573,8 @@ function renderBobChips(){
     </button>`).join('');
 }
 
-function bobMostrarInfo(val){
+function bobMostrarInfo(s){
   const info=document.getElementById('bob-stock-info');if(!info)return;
-  const s=get(K.stocks).find(x=>x.name.toLowerCase()===(val||'').trim().toLowerCase());
   if(s){
     info.style.display='block';
     info.innerHTML=`<div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:12px;padding:12px 14px;">
@@ -2588,21 +2587,26 @@ function bobMostrarInfo(val){
   }
 }
 function bobSelect(name,unit){
-  document.getElementById('bob-nombre').value=name;
+  const stocks=get(K.stocks);
+  _bobSelected=stocks.find(s=>s.name.toLowerCase()===name.toLowerCase())||{name,unit,qty:0};
+  document.getElementById('bob-nombre').value=_bobSelected.name;
   const b=document.getElementById('bob-sugg');if(b)b.style.display='none';
-  const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${unit}'"]`);
-  if(btn)selBobUnit(unit,btn);
-  bobMostrarInfo(name);
+  const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${_bobSelected.unit}'"]`);
+  if(btn)selBobUnit(_bobSelected.unit,btn);
+  bobMostrarInfo(_bobSelected);
   document.getElementById('bob-qty').focus();
 }
 function bobFiltrar(val){
+  _bobSelected=null;
   const box=document.getElementById('bob-sugg');
   stockSuggestions(val,box,function(name,unit){
-    document.getElementById('bob-nombre').value=name;
-    const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${unit}'"]`);
-    if(btn)selBobUnit(unit,btn);
+    const stocks=get(K.stocks);
+    _bobSelected=stocks.find(s=>s.name.toLowerCase()===name.toLowerCase())||{name,unit,qty:0};
+    document.getElementById('bob-nombre').value=_bobSelected.name;
+    const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${_bobSelected.unit}'"]`);
+    if(btn)selBobUnit(_bobSelected.unit,btn);
     box.style.display='none';
-    bobMostrarInfo(name);
+    bobMostrarInfo(_bobSelected);
     document.getElementById('bob-qty').focus();
   });
 }
@@ -2611,24 +2615,28 @@ function addBobItem(){
   const nombre=document.getElementById('bob-nombre').value.trim();
   const qty=parseFloat(document.getElementById('bob-qty').value);
   const costo=parseFloat(document.getElementById('bob-costo').value)||0;
-  if(!nombre){toast('⚠️ Escribe o selecciona un producto','#e67e22');return;}
+  if(!nombre){toast('⚠️ Selecciona un producto de la lista','#e67e22');return;}
   if(!qty||qty<=0){toast('⚠️ Ingresa una cantidad válida','#e67e22');return;}
-  const stocks=get(K.stocks);
-  const match=stocks.find(s=>s.name.toLowerCase()===nombre.toLowerCase());
+  // Si el usuario seleccionó de la lista, usar ese ítem directamente
+  let match=_bobSelected&&_bobSelected.name.toLowerCase()===nombre.toLowerCase()?_bobSelected:null;
+  // Si no, intentar búsqueda en stock actual
+  if(!match)match=get(K.stocks).find(s=>s.name.toLowerCase()===nombre.toLowerCase());
   if(!match){
+    const stocks=get(K.stocks);
     const sugg=stocks.filter(s=>s.name.toLowerCase().includes(nombre.toLowerCase())||nombre.toLowerCase().split(' ').some(w=>w.length>2&&s.name.toLowerCase().includes(w))).slice(0,3);
-    const suggTxt=sugg.length?(' ¿Quisiste decir: '+sugg.map(s=>s.name).join(', ')+'?'):'';
+    const suggTxt=sugg.length?(' ¿Quisiste decir: '+sugg.map(s=>s.name).join(', ')+'?'):' Usa los botones de acceso rápido o escribe para buscar.';
     toast('❌ "'+nombre+'" no está en el inventario.'+suggTxt,'#c0392b');
     return;
   }
-  bobItems.push({id:Date.now(),nombre:match.name,qty,unit:match.unit,costo});
+  bobItems.push({id:Date.now(),nombre:match.name,qty,unit:match.unit||'und',costo});
+  _bobSelected=null;
   document.getElementById('bob-nombre').value='';
   document.getElementById('bob-qty').value='';
   document.getElementById('bob-costo').value='';
   document.getElementById('bob-stock-info').style.display='none';
   document.getElementById('bob-nombre').focus();
   renderBobList();
-  toast('✅ '+match.name+' agregado ('+qty+' '+match.unit+')');
+  toast('✅ '+match.name+' — '+qty+' '+match.unit);
 }
 
 function removeBobItem(id){
@@ -2845,6 +2853,7 @@ function renderMetaMensual(){
   setupRealtime();
   loadFromSupabase().then(()=>{
     if(role&&role!=='bob')autoRefresh();
+    else if(role==='bob')renderBobChips();
   });
   setInterval(async()=>{
     if(!role||role==='bob')return;
