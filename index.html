@@ -941,8 +941,10 @@ const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const _supa=supabase.createClient(SUPA_URL,SUPA_KEY);
 
 async function supaSync(key,value){
-  try{await _supa.from('bs_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});}
-  catch(e){console.warn('sync error',key,e);}
+  try{
+    await _supa.from('bs_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(_supaChannel)_supaChannel.send({type:'broadcast',event:'sync',payload:{key}});
+  }catch(e){console.warn('sync error',key,e);}
 }
 async function loadFromSupabase(){
   try{
@@ -954,8 +956,17 @@ async function loadFromSupabase(){
     });
   }catch(e){console.warn('load error',e);}
 }
+function triggerRefresh(){
+  if(!role||role==='bob')return;
+  clearTimeout(_refreshTimer);
+  _refreshTimer=setTimeout(async()=>{
+    await loadFromSupabase();
+    autoRefresh();
+  },300);
+}
 function setupRealtime(){
-  _supa.channel('bs_live')
+  _supaChannel=_supa.channel('bs_live')
+    .on('broadcast',{event:'sync'},()=>triggerRefresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'bs_data'},payload=>{
       if(payload.new&&payload.new.key){
         localStorage.setItem(payload.new.key,JSON.stringify(payload.new.value));
@@ -1015,6 +1026,7 @@ const CATALOGO=[
 
 // ===== STATE =====
 let role=null,currentPin='',activeCat=0,cartItems=[],pendingProduct=null,pendingStockId=null,_suggCallback=null,dashChartMode='week';
+let _supaChannel=null,_refreshTimer=null;
 let mesaSeleccionada=null;
 let selCremas=new Set(),selSinCremas=false,selAdics={},selEnsalada=null,selPapas=null;
 let metodoPago=null;
@@ -1123,10 +1135,14 @@ function showSection(id){
   if(id==='mas'){
     const entradaForm=document.getElementById('stock-entrada-cajera');
     if(entradaForm)entradaForm.style.display='none';
+    renderStockList('cajera');
     loadFromSupabase().then(()=>renderStockList('cajera'));
   }
   if(id==='dashboard')renderDashboard();
-  if(id==='stock'){loadFromSupabase().then(()=>renderStockList('dueno'));}
+  if(id==='stock'){
+    renderStockList('dueno');
+    loadFromSupabase().then(()=>renderStockList('dueno'));
+  }
   if(id==='historial')renderHistorial('dueno');
   if(id==='fiados-cajera')renderFiadosPanel();
   if(id==='hist-cajera')renderHistorialCajera();
@@ -1520,7 +1536,7 @@ function saveOrder(tipo,fiadoFecha){
   const total=subtotal+deliveryCost;
   const allOrders=get(K.orders);
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
-  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:role==='mozo'?'en_cocina':'pendiente',statusTimes:{[role==='mozo'?'en_cocina':'pendiente']:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
+  const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
@@ -2646,15 +2662,17 @@ async function saveBobCompra(){
   localStorage.setItem(K.stocks,JSON.stringify(stocks));
   localStorage.setItem(K.expenses,JSON.stringify(exps));
 
-  try{
-    await Promise.all([
-      _supa.from('bs_data').upsert({key:K.stocks,value:stocks,updated_at:new Date().toISOString()},{onConflict:'key'}),
-      _supa.from('bs_data').upsert({key:K.expenses,value:exps,updated_at:new Date().toISOString()},{onConflict:'key'})
-    ]);
+  const [r1,r2]=await Promise.all([
+    _supa.from('bs_data').upsert({key:K.stocks,value:stocks,updated_at:new Date().toISOString()},{onConflict:'key'}),
+    _supa.from('bs_data').upsert({key:K.expenses,value:exps,updated_at:new Date().toISOString()},{onConflict:'key'})
+  ]).catch(e=>([{error:e},{error:e}]));
+  const supaErr=r1.error||r2.error;
+  if(supaErr){
+    console.warn('bob sync error',supaErr);
+    toast('❌ Error Supabase: '+supaErr.message,'#c0392b');
+  }else{
+    if(_supaChannel)_supaChannel.send({type:'broadcast',event:'sync',payload:{key:'bob_compra'}});
     toast('✅ Compra guardada y sincronizada — '+fmt(total),'#2a5c27');
-  }catch(e){
-    console.warn('bob sync error',e);
-    toast('⚠️ Guardado local — sin conexión','#e67e22');
   }
 
   bobItems=[];
