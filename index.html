@@ -965,7 +965,7 @@ function triggerRefresh(){
   },300);
 }
 function setupRealtime(){
-  _supaChannel=_supa.channel('bs_live')
+  _supaChannel=_supa.channel('bs_live',{config:{broadcast:{self:false}}})
     .on('broadcast',{event:'sync'},()=>triggerRefresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'bs_data'},payload=>{
       if(payload.new&&payload.new.key){
@@ -973,7 +973,11 @@ function setupRealtime(){
         autoRefresh();
       }
     })
-    .subscribe();
+    .subscribe((status)=>{
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+        setTimeout(setupRealtime,3000);
+      }
+    });
 }
 function autoRefresh(){
   const active=document.querySelector('.sec.active');
@@ -2715,6 +2719,7 @@ function resetTodo(){
       await Promise.all(keys.map(k=>
         _supa.from('bs_data').upsert({key:k,value:[],updated_at:new Date().toISOString()},{onConflict:'key'})
       ));
+      if(_supaChannel)_supaChannel.send({type:'broadcast',event:'sync',payload:{key:'reset'}});
     }catch(e){console.warn('supabase reset error',e);}
     toast('🗑️ Sistema en cero — todos los dispositivos sincronizados.','#c0392b');
     renderMostrador();
@@ -2837,15 +2842,15 @@ function renderMetaMensual(){
   }else{
     document.getElementById('login').style.display='flex';
   }
+  setupRealtime();
   loadFromSupabase().then(()=>{
-    setupRealtime();
     if(role&&role!=='bob')autoRefresh();
   });
   setInterval(async()=>{
     if(!role||role==='bob')return;
     await loadFromSupabase();
     autoRefresh();
-  },8000);
+  },5000);
 })();
 </script>
 </body>
