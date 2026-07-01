@@ -678,15 +678,15 @@ input.err,select.err{border-color:#e74c3c!important;}
 
   <!-- Formulario de compra -->
   <div style="background:white;border-radius:20px;margin:14px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
-    <div style="font-size:13px;font-weight:700;color:#e67e22;margin-bottom:8px;">¿Compraste algo nuevo? Escribe el nombre abajo ↓</div>
-    <div style="position:relative;margin-bottom:10px;">
-      <input id="bob-nombre" type="text" placeholder="Nombre del producto (nuevo o existente)"
+    <div style="font-size:13px;font-weight:700;color:#e67e22;margin-bottom:8px;">Toca un producto de arriba o escribe para buscar ↓</div>
+    <div style="position:relative;margin-bottom:8px;">
+      <input id="bob-nombre" type="text" placeholder="Buscar producto del inventario..."
         style="width:100%;padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;display:block;"
         autocomplete="off"
-        oninput="bobFiltrar(this.value)" onfocus="bobFiltrar(this.value)" onblur="setTimeout(()=>{const b=document.getElementById('bob-sugg');if(b)b.style.display='none';},200)"
-        onfocus2="this.style.borderColor='#e67e22'" onblur2="this.style.borderColor='#ddd'">
+        oninput="bobFiltrar(this.value);bobMostrarInfo(this.value)" onfocus="bobFiltrar(this.value)" onblur="setTimeout(()=>{const b=document.getElementById('bob-sugg');if(b)b.style.display='none';},200)">
       <div id="bob-sugg" style="position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e67e22;border-top:none;border-radius:0 0 14px 14px;z-index:200;display:none;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)"></div>
     </div>
+    <div id="bob-stock-info" style="display:none;margin-bottom:10px;"></div>
     <input id="bob-qty" type="number" placeholder="Cantidad" min="0" step="0.5"
       style="width:100%;padding:16px;border:2px solid #ddd;border-radius:14px;font-size:18px;text-align:center;margin-bottom:10px;display:block;"
       onfocus="this.style.borderColor='#e67e22'" onblur="this.style.borderColor='#ddd'">
@@ -2569,19 +2569,36 @@ function renderBobChips(){
     </button>`).join('');
 }
 
+function bobMostrarInfo(val){
+  const info=document.getElementById('bob-stock-info');if(!info)return;
+  const s=get(K.stocks).find(x=>x.name.toLowerCase()===(val||'').trim().toLowerCase());
+  if(s){
+    info.style.display='block';
+    info.innerHTML=`<div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:12px;padding:12px 14px;">
+      <div style="font-size:14px;font-weight:700;color:#1b5e20">📦 ${s.name}</div>
+      <div style="font-size:13px;color:#2e7d32;margin-top:2px">Stock actual: <strong>${s.qty} ${s.unit}</strong> — agregarás cantidad a este insumo</div>
+    </div>`;
+  }else{
+    info.style.display='none';
+    info.innerHTML='';
+  }
+}
 function bobSelect(name,unit){
   document.getElementById('bob-nombre').value=name;
   const b=document.getElementById('bob-sugg');if(b)b.style.display='none';
   const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${unit}'"]`);
   if(btn)selBobUnit(unit,btn);
+  bobMostrarInfo(name);
   document.getElementById('bob-qty').focus();
 }
 function bobFiltrar(val){
   const box=document.getElementById('bob-sugg');
   stockSuggestions(val,box,function(name,unit){
     document.getElementById('bob-nombre').value=name;
-    document.getElementById('bob-unit').value=unit;
+    const btn=document.querySelector(`#bob-unit-btns button[onclick*="'${unit}'"]`);
+    if(btn)selBobUnit(unit,btn);
     box.style.display='none';
+    bobMostrarInfo(name);
     document.getElementById('bob-qty').focus();
   });
 }
@@ -2589,16 +2606,25 @@ function bobFiltrar(val){
 function addBobItem(){
   const nombre=document.getElementById('bob-nombre').value.trim();
   const qty=parseFloat(document.getElementById('bob-qty').value);
-  const unit=document.getElementById('bob-unit').value;
   const costo=parseFloat(document.getElementById('bob-costo').value)||0;
-  if(!nombre||!qty||qty<=0){toast('⚠️ Ingresa producto y cantidad','#e67e22');return;}
-  bobItems.push({id:Date.now(),nombre,qty,unit,costo});
+  if(!nombre){toast('⚠️ Escribe o selecciona un producto','#e67e22');return;}
+  if(!qty||qty<=0){toast('⚠️ Ingresa una cantidad válida','#e67e22');return;}
+  const stocks=get(K.stocks);
+  const match=stocks.find(s=>s.name.toLowerCase()===nombre.toLowerCase());
+  if(!match){
+    const sugg=stocks.filter(s=>s.name.toLowerCase().includes(nombre.toLowerCase())||nombre.toLowerCase().split(' ').some(w=>w.length>2&&s.name.toLowerCase().includes(w))).slice(0,3);
+    const suggTxt=sugg.length?(' ¿Quisiste decir: '+sugg.map(s=>s.name).join(', ')+'?'):'';
+    toast('❌ "'+nombre+'" no está en el inventario.'+suggTxt,'#c0392b');
+    return;
+  }
+  bobItems.push({id:Date.now(),nombre:match.name,qty,unit:match.unit,costo});
   document.getElementById('bob-nombre').value='';
   document.getElementById('bob-qty').value='';
   document.getElementById('bob-costo').value='';
+  document.getElementById('bob-stock-info').style.display='none';
   document.getElementById('bob-nombre').focus();
   renderBobList();
-  toast('✅ '+nombre+' agregado');
+  toast('✅ '+match.name+' agregado ('+qty+' '+match.unit+')');
 }
 
 function removeBobItem(id){
@@ -2677,7 +2703,7 @@ async function saveBobCompra(){
 
   bobItems=[];
   renderBobList();
-  setTimeout(logoutBob,2500);
+  if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='✅ Guardar compra y salir';}
 }
 
 function resetTodo(){
