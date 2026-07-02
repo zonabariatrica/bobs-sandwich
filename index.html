@@ -652,6 +652,16 @@ input.err,select.err{border-color:#e74c3c!important;}
       </div>
     </div>
 
+    <div class="card">
+      <div class="cfg-section-title">🍳 Recetas de productos</div>
+      <p style="font-size:12px;color:#888;margin-bottom:12px">Define qué insumos consume cada producto al venderse. Se descuenta automáticamente del stock cuando se registra una venta.</p>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Selecciona el producto</label>
+        <select id="receta-prod-sel" onchange="renderRecetaDetalle()" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px"></select>
+      </div>
+      <div id="receta-detalle"></div>
+    </div>
+
     <div class="card" style="border:2px solid #fde8e8">
       <div class="cfg-section-title" style="color:#c0392b">🗑️ Borrar todos los datos</div>
       <p style="font-size:13px;color:#888;margin-bottom:14px">Elimina todos los pedidos, caja, fiados, gastos y stock. La configuración (PINs, gastos fijos, estimados) se mantiene.</p>
@@ -920,6 +930,31 @@ input.err,select.err{border-color:#e74c3c!important;}
   </div>
 </div>
 
+<!-- MODAL: Bebida -->
+<div class="overlay" id="modal-bebida">
+  <div class="modal" style="max-width:310px">
+    <button class="modal-close" onclick="closeBebidaModal()">×</button>
+    <div class="modal-title" id="mb-title"></div>
+    <div style="text-align:center;font-size:26px;font-weight:800;color:#e05a2b;margin-bottom:18px" id="mb-price"></div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cantidad</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:20px">
+        <button onclick="chgBebidaQty(-1)" style="width:42px;height:42px;border-radius:50%;border:2px solid #ddd;background:white;font-size:22px;cursor:pointer;font-weight:700;line-height:1">−</button>
+        <span id="mb-qty" style="font-size:28px;font-weight:800;min-width:32px;text-align:center">1</span>
+        <button onclick="chgBebidaQty(1)" style="width:42px;height:42px;border-radius:50%;border:2px solid #2a5c27;background:#2a5c27;color:white;font-size:22px;cursor:pointer;font-weight:700;line-height:1">+</button>
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:10px" id="mb-lbl-hielo">¿Cómo la quiere? <span style="color:#e74c3c">*</span></div>
+      <div style="display:flex;gap:10px">
+        <button class="tog" id="mb-hielo-con" onclick="selBebidaHielo('con',this)" style="flex:1;padding:14px;font-size:15px;border-radius:12px">🧊 Helada</button>
+        <button class="tog" id="mb-hielo-sin" onclick="selBebidaHielo('sin',this)" style="flex:1;padding:14px;font-size:15px;border-radius:12px">☀️ Sin hielo</button>
+      </div>
+    </div>
+    <button class="btn btn-green btn-full" style="font-size:16px;padding:14px" onclick="confirmBebida()">Agregar al pedido</button>
+  </div>
+</div>
+
 <!-- MODAL: Confirm -->
 <div class="overlay" id="modal-confirm">
   <div class="modal" style="max-width:300px;text-align:center">
@@ -1008,7 +1043,7 @@ const MENU=[
   {cat:'Bebidas',emoji:'🥤',items:[['Coca-Cola',2.50],['Fanta',2.50],['Chicha',2.50]]}
 ];
 
-const K={orders:'bsOrders',expenses:'bsExpenses',fiados:'bsFiados',stocks:'bsStocks',losses:'bsLosses',config:'bsConfig',caja:'bsCaja',cajaCierre:'bsCajaCierre'};
+const K={orders:'bsOrders',expenses:'bsExpenses',fiados:'bsFiados',stocks:'bsStocks',losses:'bsLosses',config:'bsConfig',caja:'bsCaja',cajaCierre:'bsCajaCierre',recetas:'bsRecetas'};
 const DEF_CFG={pinCajera:'1234',pinDueno:'4321',estimados:{},vidasUtil:{},numMesas:4};
 
 const CATALOGO=[
@@ -1031,7 +1066,7 @@ const CATALOGO=[
 
 // ===== STATE =====
 let role=null,currentPin='',activeCat=0,cartItems=[],pendingProduct=null,pendingStockId=null,_suggCallback=null,dashChartMode='week';
-let _supaChannel=null,_refreshTimer=null,_bobSelected=null;
+let _supaChannel=null,_refreshTimer=null,_bobSelected=null,_bebidaQty=1,_bebidaHielo=null;
 let mesaSeleccionada=null;
 let selCremas=new Set(),selSinCremas=false,selAdics={},selEnsalada=null,selPapas=null;
 let metodoPago=null;
@@ -1361,12 +1396,14 @@ function renderCatTabs(){
 function renderProdGrid(){
   renderCatTabs();
   const g=MENU[activeCat];
-  document.getElementById('prod-grid').innerHTML=g.items.map(([n,p])=>
-    `<div class="prod-card" onclick="openProdModal('${n.replace(/'/g,"\\'")}',${p})">
+  const esBebida=g.cat==='Bebidas';
+  document.getElementById('prod-grid').innerHTML=g.items.map(([n,p])=>{
+    const fn=esBebida?`openBebidaModal('${n.replace(/'/g,"\\'")}',${p})`:`openProdModal('${n.replace(/'/g,"\\'")}',${p})`;
+    return `<div class="prod-card" onclick="${fn}">
       <div class="prod-card-name">${n}</div>
       <div class="prod-card-price">S/${p%1===0?p:p.toFixed(2)}</div>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 function setCat(i){activeCat=i;renderProdGrid();}
 function setType(t){
@@ -1434,6 +1471,41 @@ function openProdModal(name,price){
   document.querySelector('#modal-prod .modal').scrollTop=0;
 }
 function closeProdModal(){document.getElementById('modal-prod').classList.remove('show');}
+
+// ===== MODAL BEBIDAS =====
+function openBebidaModal(name,price){
+  pendingProduct={name,price};
+  _bebidaQty=1;_bebidaHielo=null;
+  document.getElementById('mb-title').textContent=name;
+  document.getElementById('mb-price').textContent=fmt(price);
+  document.getElementById('mb-qty').textContent='1';
+  document.getElementById('mb-lbl-hielo').style.color='';
+  ['mb-hielo-con','mb-hielo-sin'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  document.getElementById('modal-bebida').classList.add('show');
+}
+function closeBebidaModal(){document.getElementById('modal-bebida').classList.remove('show');pendingProduct=null;}
+function chgBebidaQty(d){
+  _bebidaQty=Math.max(1,_bebidaQty+d);
+  document.getElementById('mb-qty').textContent=_bebidaQty;
+  if(pendingProduct)document.getElementById('mb-price').textContent=fmt(pendingProduct.price*_bebidaQty);
+}
+function selBebidaHielo(val,btn){
+  _bebidaHielo=val;
+  ['mb-hielo-con','mb-hielo-sin'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('mb-lbl-hielo').style.color='';
+}
+function confirmBebida(){
+  if(!_bebidaHielo){document.getElementById('mb-lbl-hielo').style.color='#e74c3c';return;}
+  const nota=_bebidaHielo==='con'?'🧊 Helada':'☀️ Sin hielo';
+  for(let i=0;i<_bebidaQty;i++){
+    cartItems.push({name:pendingProduct.name,price:pendingProduct.price,basePrice:pendingProduct.price,cremas:[],sinCremas:false,adicionales:[],ensalada:null,papas:null,nota});
+  }
+  const n=pendingProduct.name;
+  closeBebidaModal();
+  renderCart();
+  toast('✅ '+_bebidaQty+'x '+n+' — '+nota);
+}
 function _limpiarAtajos(){['btn-sc','btn-tc','btn-sac'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('on');});}
 function togSinCremas(btn){selSinCremas=!btn.classList.contains('on');document.getElementById('cremas-wrap').querySelectorAll('.tog').forEach(b=>b.classList.remove('on'));selCremas=new Set();if(selSinCremas)btn.classList.add('on');document.getElementById('lbl-cremas').classList.remove('req-err');}
 function togTodasCremas(btn){_limpiarAtajos();selSinCremas=false;selCremas=new Set(CREMAS);document.querySelectorAll('#cremas-wrap [data-crema]').forEach(b=>b.classList.add('on'));btn.classList.add('on');document.getElementById('lbl-cremas').classList.remove('req-err');}
@@ -1543,6 +1615,7 @@ function saveOrder(tipo,fiadoFecha){
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
   const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
+  descontarInsumos(cartItems);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
     fiados.push({id:Date.now()+1,date:todayStr(),dateLabel:fullDate(),time:nowTime(),name:client,productos:itemsLabel(cartItems),amount:total,status:'pendiente',orderId:order.id});
@@ -2468,11 +2541,105 @@ function cambiarMesas(delta){
   toast('✅ Mesas: '+nuevo);
 }
 
+// ===== RECETAS =====
+function renderRecetas(){
+  const sel=document.getElementById('receta-prod-sel');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Elige un producto —</option>'+
+    MENU.flatMap(g=>g.items.map(([n])=>`<option value="${n}"${n===cur?' selected':''}>${n} (${g.cat})</option>`)).join('');
+  renderRecetaDetalle();
+}
+function renderRecetaDetalle(){
+  const sel=document.getElementById('receta-prod-sel');
+  const box=document.getElementById('receta-detalle');
+  if(!sel||!box)return;
+  const prod=sel.value;
+  if(!prod){box.innerHTML='';return;}
+  const recetas=getObj(K.recetas,{});
+  const ings=recetas[prod]||[];
+  box.innerHTML=`
+    <div style="margin-bottom:10px;min-height:32px">
+      ${ings.length?ings.map(ing=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;margin-bottom:6px;font-size:14px">
+          <span>📦 <strong>${ing.nombre}</strong> — ${ing.qty} ${ing.unit||'und'}</span>
+          <button class="btn btn-danger btn-sm" onclick="delIngReceta('${prod.replace(/'/g,"\\'")}','${ing.nombre.replace(/'/g,"\\'")}')">Quitar</button>
+        </div>`).join('')
+        :'<div style="font-size:13px;color:#aaa;padding:4px 0 8px">Sin insumos definidos todavía</div>'}
+    </div>
+    <div style="border-top:1px solid #eee;padding-top:12px">
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Agregar insumo a la receta</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="position:relative;flex:2;min-width:140px">
+          <input id="ri-nombre" type="text" placeholder="Buscar insumo del stock..." autocomplete="off"
+            style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px"
+            oninput="riFiltrar(this.value)" onfocus="riFiltrar(this.value)"
+            onblur="setTimeout(()=>{const b=document.getElementById('ri-sugg');if(b)b.style.display='none';},200)">
+          <div id="ri-sugg" style="position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid #2a5c27;border-top:none;border-radius:0 0 10px 10px;z-index:200;display:none;max-height:160px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.1)"></div>
+        </div>
+        <input id="ri-qty" type="number" placeholder="Cant." min="0.01" step="0.01" value="1"
+          style="width:72px;padding:9px 8px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;text-align:center">
+        <button class="btn btn-green" onclick="addIngReceta()">+ Agregar</button>
+      </div>
+    </div>`;
+}
+function riFiltrar(val){
+  const box=document.getElementById('ri-sugg');if(!box)return;
+  stockSuggestions(val,box,function(name){
+    document.getElementById('ri-nombre').value=name;
+    box.style.display='none';
+  });
+}
+function addIngReceta(){
+  const prod=document.getElementById('receta-prod-sel').value;
+  const nombre=(document.getElementById('ri-nombre').value||'').trim();
+  const qty=parseFloat(document.getElementById('ri-qty').value)||1;
+  if(!prod||!nombre){toast('⚠️ Selecciona producto e insumo','#e67e22');return;}
+  const st=get(K.stocks).find(s=>s.name.toLowerCase()===nombre.toLowerCase());
+  const recetas=getObj(K.recetas,{});
+  if(!recetas[prod])recetas[prod]=[];
+  recetas[prod]=recetas[prod].filter(i=>i.nombre.toLowerCase()!==nombre.toLowerCase());
+  recetas[prod].push({nombre:st?st.name:nombre,qty,unit:st?st.unit:'und'});
+  setObj(K.recetas,recetas);
+  document.getElementById('ri-nombre').value='';
+  document.getElementById('ri-qty').value='1';
+  renderRecetaDetalle();
+  toast('✅ Insumo agregado a la receta');
+}
+function delIngReceta(prod,nombre){
+  const recetas=getObj(K.recetas,{});
+  if(recetas[prod]){
+    recetas[prod]=recetas[prod].filter(i=>i.nombre!==nombre);
+    if(!recetas[prod].length)delete recetas[prod];
+  }
+  setObj(K.recetas,recetas);
+  renderRecetaDetalle();
+  toast('Insumo quitado de la receta');
+}
+function descontarInsumos(items){
+  const recetas=getObj(K.recetas,{});
+  if(!Object.keys(recetas).length)return;
+  const stocks=get(K.stocks);
+  let changed=false;
+  items.forEach(item=>{
+    const receta=recetas[item.name];
+    if(!receta||!receta.length)return;
+    receta.forEach(ing=>{
+      const st=stocks.find(s=>s.name.toLowerCase()===ing.nombre.toLowerCase());
+      if(st){
+        st.qty=Math.max(0,parseFloat((st.qty-ing.qty).toFixed(3)));
+        changed=true;
+      }
+    });
+  });
+  if(changed)set(K.stocks,stocks);
+}
+
 // ===== CONFIG =====
 function renderConfig(){
   const el=document.getElementById('cfg-num-mesas');
   if(el){el.textContent=(getConfig().numMesas||4);}
   renderGastosFijosConfig();
+  renderRecetas();
   const cfg=getConfig();
   // estimados
   const estBox=document.getElementById('cfg-estimados');
