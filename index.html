@@ -2557,6 +2557,10 @@ function renderRecetaDetalle(){
   if(!prod){box.innerHTML='';return;}
   const recetas=getObj(K.recetas,{});
   const ings=recetas[prod]||[];
+  const stocks=get(K.stocks);
+  const stockOpts=stocks.length
+    ?stocks.map(s=>`<option value="${s.name.replace(/"/g,'&quot;')}">${s.name} (${s.qty} ${s.unit})</option>`).join('')
+    :'<option value="">— Sin insumos en stock —</option>';
   box.innerHTML=`
     <div style="margin-bottom:10px;min-height:32px">
       ${ings.length?ings.map(ing=>`
@@ -2568,42 +2572,33 @@ function renderRecetaDetalle(){
     </div>
     <div style="border-top:1px solid #eee;padding-top:12px">
       <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Agregar insumo a la receta</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div style="position:relative;flex:2;min-width:140px">
-          <input id="ri-nombre" type="text" placeholder="Buscar insumo del stock..." autocomplete="off"
-            style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px"
-            oninput="riFiltrar(this.value)" onfocus="riFiltrar(this.value)"
-            onblur="setTimeout(()=>{const b=document.getElementById('ri-sugg');if(b)b.style.display='none';},200)">
-          <div id="ri-sugg" style="position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid #2a5c27;border-top:none;border-radius:0 0 10px 10px;z-index:200;display:none;max-height:160px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.1)"></div>
-        </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="ri-insumo-sel" style="flex:2;min-width:160px;padding:9px 10px;border:1.5px solid #ddd;border-radius:10px;font-size:14px">
+          <option value="">— Selecciona insumo —</option>
+          ${stockOpts}
+        </select>
         <input id="ri-qty" type="number" placeholder="Cant." min="0.01" step="0.01" value="1"
           style="width:72px;padding:9px 8px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;text-align:center">
         <button class="btn btn-green" onclick="addIngReceta()">+ Agregar</button>
       </div>
+      ${!stocks.length?'<p style="font-size:12px;color:#e67e22;margin-top:8px">⚠️ Primero agrega insumos al Stock para poder usarlos en recetas.</p>':''}
     </div>`;
-}
-function riFiltrar(val){
-  const box=document.getElementById('ri-sugg');if(!box)return;
-  stockSuggestions(val,box,function(name){
-    document.getElementById('ri-nombre').value=name;
-    box.style.display='none';
-  });
 }
 function addIngReceta(){
   const prod=document.getElementById('receta-prod-sel').value;
-  const nombre=(document.getElementById('ri-nombre').value||'').trim();
+  const nombre=(document.getElementById('ri-insumo-sel').value||'').trim();
   const qty=parseFloat(document.getElementById('ri-qty').value)||1;
-  if(!prod||!nombre){toast('⚠️ Selecciona producto e insumo','#e67e22');return;}
-  const st=get(K.stocks).find(s=>s.name.toLowerCase()===nombre.toLowerCase());
+  if(!prod){toast('⚠️ Selecciona un producto primero','#e67e22');return;}
+  if(!nombre){toast('⚠️ Selecciona un insumo del stock','#e67e22');return;}
+  const st=get(K.stocks).find(s=>s.name===nombre);
   const recetas=getObj(K.recetas,{});
   if(!recetas[prod])recetas[prod]=[];
-  recetas[prod]=recetas[prod].filter(i=>i.nombre.toLowerCase()!==nombre.toLowerCase());
-  recetas[prod].push({nombre:st?st.name:nombre,qty,unit:st?st.unit:'und'});
+  recetas[prod]=recetas[prod].filter(i=>i.nombre!==nombre);
+  recetas[prod].push({nombre,qty,unit:st?st.unit:'und'});
   setObj(K.recetas,recetas);
-  document.getElementById('ri-nombre').value='';
   document.getElementById('ri-qty').value='1';
   renderRecetaDetalle();
-  toast('✅ Insumo agregado a la receta');
+  toast('✅ '+nombre+' agregado a la receta');
 }
 function delIngReceta(prod,nombre){
   const recetas=getObj(K.recetas,{});
