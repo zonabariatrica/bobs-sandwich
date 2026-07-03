@@ -1652,7 +1652,7 @@ function saveOrder(tipo,fiadoFecha){
   const orderNum=allOrders.filter(o=>o.date===todayStr()).length+1;
   const order={id:Date.now(),orderNum,date:todayStr(),time:nowTime(),dateLabel:fullDate(),client,type:isDelivery?'delivery':isLlevar?'llevar':'local',mesa:isLocal?mesaSeleccionada:null,address,deliveryCost,items:cartItems.map(i=>({...i})),total,status:'pendiente',statusTimes:{pendiente:nowTime()},pagoTipo:tipo,metodoPago:(tipo==='pagoya'||tipo==='al_recibir')?metodoPago:null,pagado:tipo==='pagoya',fiadoFecha:tipo==='fiar'?fiadoFecha:null};
   allOrders.push(order);set(K.orders,allOrders);
-  descontarInsumos(cartItems);
+  descontarInsumos(cartItems,order.type);
   if(tipo==='fiar'){
     const fiados=get(K.fiados);
     fiados.push({id:Date.now()+1,date:todayStr(),dateLabel:fullDate(),time:nowTime(),name:client,productos:itemsLabel(cartItems),amount:total,status:'pendiente',orderId:order.id});
@@ -2597,9 +2597,21 @@ function toggleAcrd(id){
 function renderRecetas(){
   const sel=document.getElementById('receta-prod-sel');if(!sel)return;
   const cur=sel.value;
+  const recetas=getObj(K.recetas,{});
   sel.innerHTML='<option value="">— Elige un producto —</option>'+
-    MENU.flatMap(g=>g.items.map(([n])=>`<option value="${n}"${n===cur?' selected':''}>${n} (${g.cat})</option>`)).join('');
+    MENU.flatMap(g=>g.items.map(([n])=>{
+      const cant=(recetas[n]||[]).length;
+      const marca=cant?'✅ ':'';
+      const detalle=cant?` — ${cant} insumo${cant>1?'s':''}`:' — sin receta';
+      return `<option value="${n}"${n===cur?' selected':''}>${marca}${n} (${g.cat})${detalle}</option>`;
+    })).join('');
   renderRecetaDetalle();
+}
+const TIPOS_VENTA=[['local','🍽️ Mesa'],['llevar','🥡 Llevar'],['delivery','🛵 Delivery']];
+function tiposVentaLabel(tipos){
+  const t=(tipos&&tipos.length)?tipos:['local','llevar','delivery'];
+  if(t.length===3)return 'Mesa + Llevar + Delivery';
+  return TIPOS_VENTA.filter(([k])=>t.includes(k)).map(([,lbl])=>lbl).join(' + ');
 }
 function renderRecetaDetalle(){
   const sel=document.getElementById('receta-prod-sel');
@@ -2616,41 +2628,89 @@ function renderRecetaDetalle(){
   box.innerHTML=`
     <div style="margin-bottom:10px;min-height:32px">
       ${ings.length?ings.map(ing=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f5f5f5;border-radius:8px;margin-bottom:6px;font-size:14px">
-          <span>📦 <strong>${ing.nombre}</strong> — ${ing.qty} ${ing.unit||'und'}</span>
-          <button class="btn btn-danger btn-sm" onclick="delIngReceta('${prod.replace(/'/g,"\\'")}','${ing.nombre.replace(/'/g,"\\'")}')">Quitar</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:#f5f5f5;border-radius:8px;margin-bottom:6px;font-size:14px">
+          <div>
+            <div>📦 <strong>${ing.nombre}</strong> — ${ing.qty} ${ing.unit||'und'}</div>
+            <div style="font-size:11px;color:#888;margin-top:2px">Se descuenta en: ${tiposVentaLabel(ing.tipos)}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-gray btn-sm" onclick="editIngReceta('${prod.replace(/'/g,"\\'")}','${ing.nombre.replace(/'/g,"\\'")}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="delIngReceta('${prod.replace(/'/g,"\\'")}','${ing.nombre.replace(/'/g,"\\'")}')">Quitar</button>
+          </div>
         </div>`).join('')
         :'<div style="font-size:13px;color:#aaa;padding:4px 0 8px">Sin insumos definidos todavía</div>'}
     </div>
     <div style="border-top:1px solid #eee;padding-top:12px">
-      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Agregar insumo a la receta</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="ri-insumo-sel" style="flex:2;min-width:160px;padding:9px 10px;border:1.5px solid #ddd;border-radius:10px;font-size:14px">
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Agregar o editar insumo de la receta</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <select id="ri-insumo-sel" onchange="prefillIngReceta()" style="flex:2;min-width:160px;padding:9px 10px;border:1.5px solid #ddd;border-radius:10px;font-size:14px">
           <option value="">— Selecciona insumo —</option>
           ${stockOpts}
         </select>
         <input id="ri-qty" type="number" placeholder="Cant." min="0.01" step="0.01" value="1"
           style="width:72px;padding:9px 8px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;text-align:center">
-        <button class="btn btn-green" onclick="addIngReceta()">+ Agregar</button>
       </div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px">¿Se gasta cuando la venta es...?</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button type="button" class="type-btn on" id="ri-tipo-local" onclick="toggleRiTipo('local')">🍽️ Mesa</button>
+        <button type="button" class="type-btn on" id="ri-tipo-llevar" onclick="toggleRiTipo('llevar')">🥡 Llevar</button>
+        <button type="button" class="type-btn on" id="ri-tipo-delivery" onclick="toggleRiTipo('delivery')">🛵 Delivery</button>
+      </div>
+      <button class="btn btn-green" id="ri-add-btn" onclick="addIngReceta()">+ Agregar</button>
       ${!stocks.length?'<p style="font-size:12px;color:#e67e22;margin-top:8px">⚠️ Primero agrega insumos al Stock para poder usarlos en recetas.</p>':''}
     </div>`;
+}
+function setRiTipos(tipos){
+  TIPOS_VENTA.forEach(([t])=>{
+    const btn=document.getElementById('ri-tipo-'+t);
+    if(btn)btn.classList.toggle('on',tipos.includes(t));
+  });
+}
+function toggleRiTipo(t){
+  const btn=document.getElementById('ri-tipo-'+t);
+  if(!btn)return;
+  const activos=TIPOS_VENTA.filter(([x])=>document.getElementById('ri-tipo-'+x).classList.contains('on'));
+  if(btn.classList.contains('on')&&activos.length===1)return;
+  btn.classList.toggle('on');
+}
+function prefillIngReceta(){
+  const prod=document.getElementById('receta-prod-sel').value;
+  const nombre=document.getElementById('ri-insumo-sel').value;
+  const btn=document.getElementById('ri-add-btn');
+  const ing=prod&&nombre?(getObj(K.recetas,{})[prod]||[]).find(i=>i.nombre===nombre):null;
+  if(ing){
+    document.getElementById('ri-qty').value=ing.qty;
+    setRiTipos(ing.tipos&&ing.tipos.length?ing.tipos:['local','llevar','delivery']);
+    if(btn)btn.textContent='💾 Actualizar';
+  }else{
+    document.getElementById('ri-qty').value='1';
+    setRiTipos(['local','llevar','delivery']);
+    if(btn)btn.textContent='+ Agregar';
+  }
+}
+function editIngReceta(prod,nombre){
+  const sel=document.getElementById('ri-insumo-sel');
+  if(!sel)return;
+  sel.value=nombre;
+  prefillIngReceta();
+  sel.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function addIngReceta(){
   const prod=document.getElementById('receta-prod-sel').value;
   const nombre=(document.getElementById('ri-insumo-sel').value||'').trim();
   const qty=parseFloat(document.getElementById('ri-qty').value)||1;
+  const tipos=TIPOS_VENTA.filter(([t])=>{const b=document.getElementById('ri-tipo-'+t);return b&&b.classList.contains('on');}).map(([t])=>t);
   if(!prod){toast('⚠️ Selecciona un producto primero','#e67e22');return;}
   if(!nombre){toast('⚠️ Selecciona un insumo del stock','#e67e22');return;}
   const st=get(K.stocks).find(s=>s.name===nombre);
   const recetas=getObj(K.recetas,{});
   if(!recetas[prod])recetas[prod]=[];
+  const esNuevo=!recetas[prod].some(i=>i.nombre===nombre);
   recetas[prod]=recetas[prod].filter(i=>i.nombre!==nombre);
-  recetas[prod].push({nombre,qty,unit:st?st.unit:'und'});
+  recetas[prod].push({nombre,qty,unit:st?st.unit:'und',tipos:tipos.length?tipos:['local','llevar','delivery']});
   setObj(K.recetas,recetas);
-  document.getElementById('ri-qty').value='1';
-  renderRecetaDetalle();
-  toast('✅ '+nombre+' agregado a la receta');
+  renderRecetas();
+  toast((esNuevo?'✅ ':'💾 ')+nombre+(esNuevo?' agregado a la receta de '+prod:' actualizado en la receta de '+prod));
 }
 function delIngReceta(prod,nombre){
   const recetas=getObj(K.recetas,{});
@@ -2659,10 +2719,10 @@ function delIngReceta(prod,nombre){
     if(!recetas[prod].length)delete recetas[prod];
   }
   setObj(K.recetas,recetas);
-  renderRecetaDetalle();
+  renderRecetas();
   toast('Insumo quitado de la receta');
 }
-function descontarInsumos(items){
+function descontarInsumos(items,tipoVenta){
   const recetas=getObj(K.recetas,{});
   if(!Object.keys(recetas).length)return;
   const stocks=get(K.stocks);
@@ -2671,6 +2731,8 @@ function descontarInsumos(items){
     const receta=recetas[item.name];
     if(!receta||!receta.length)return;
     receta.forEach(ing=>{
+      const tipos=(ing.tipos&&ing.tipos.length)?ing.tipos:['local','llevar','delivery'];
+      if(tipoVenta&&!tipos.includes(tipoVenta))return;
       const st=stocks.find(s=>s.name.toLowerCase()===ing.nombre.toLowerCase());
       if(st){
         st.qty=Math.max(0,parseFloat((st.qty-ing.qty).toFixed(3)));
